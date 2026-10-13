@@ -1,0 +1,49 @@
+﻿STT,Dòng Excel,Kiểu nhiễu,Chi tiết
+5,6,Mỏi mệt nửa sau,trả lời ngẫu nhiên từ NTR2 trở đi
+8,9,Đồng ý tất cả (thiên lệch),"cộng 2 điểm mọi câu, kể cả rủi ro (RR) cũng cao"
+19,20,Xung đột câu gần nghĩa,CL1=1 nhưng CL3=5; DSD1=1 nhưng DSD2=5
+22,23,Hiểu ngược thang đo ở một thang,thang RR bị đảo ngược (1↔5)
+32,33,Xung đột câu gần nghĩa,YD1=5 nhưng YD2=1
+36,37,Chọn quanh mức giữa,"hầu hết chọn 3, đôi khi 2 hoặc 4"
+38,39,Xung đột câu gần nghĩa,NTR1=1 nhưng NTR2=5; YD1=1 nhưng YD2=5; CL1=5 nhưng CL3=1
+41,42,Đồng ý tất cả (thiên lệch),"cộng 2 điểm mọi câu, kể cả rủi ro (RR) cũng cao"
+45,46,Xung đột câu gần nghĩa,DSD1=5 nhưng DSD2=1; RR1=1 nhưng RR2=5; YD1=5 nhưng YD2=1
+50,51,Chọn quanh mức giữa,"hầu hết chọn 3, đôi khi 2 hoặc 4"
+54,55,Mỏi mệt nửa sau,trả lời ngẫu nhiên từ RR1 trở đi
+62,63,Chọn quanh mức giữa,"hầu hết chọn 3, đôi khi 2 hoặc 4"
+76,77,Xung đột câu gần nghĩa,DSD1=5 nhưng DSD2=1; YD1=5 nhưng YD2=1; RR1=1 nhưng RR2=5
+85,86,Mỏi mệt nửa sau,trả lời ngẫu nhiên từ NTR3 trở đi
+90,91,Mỏi mệt nửa sau,trả lời ngẫu nhiên từ NTR3 trở đi
+114,115,Hiểu ngược thang đo ở một thang,thang NTR bị đảo ngược (1↔5)
+115,116,Xung đột câu gần nghĩa,DSD1=5 nhưng DSD2=1; NTR1=5 nhưng NTR2=1; YD1=5 nhưng YD2=1
+119,120,Đồng ý tất cả (thiên lệch),"cộng 2 điểm mọi câu, kể cả rủi ro (RR) cũng cao"
+130,131,Đồng ý tất cả (thiên lệch),"cộng 2 điểm mọi câu, kể cả rủi ro (RR) cũng cao"
+135,136,Chọn quanh mức giữa,"hầu hết chọn 3, đôi khi 2 hoặc 4"
+138,139,Hiểu ngược thang đo ở một thang,thang NTR bị đảo ngược (1↔5)
+151,152,Chọn quanh mức giữa,"hầu hết chọn 3, đôi khi 2 hoặc 4"
+155,156,Xung đột câu gần nghĩa,CL1=5 nhưng CL3=1; RR1=1 nhưng RR2=5
+156,157,Hiểu ngược thang đo ở một thang,thang YD bị đảo ngược (1↔5)
+167,168,Xung đột câu gần nghĩa,NTR1=5 nhưng NTR2=1
+168,169,Xung đột câu gần nghĩa,RR1=1 nhưng RR2=5; CL1=1 nhưng CL3=5
+175,176,Hiểu ngược thang đo ở một thang,thang RR bị đảo ngược (1↔5)
+182,183,Mỏi mệt nửa sau,trả lời ngẫu nhiên từ RR1 trở đi
+187,188,Xung đột câu gần nghĩa,CL1=5 nhưng CL3=1; YD1=1 nhưng YD2=5
+194,195,Chọn quanh mức giữa,"hầu hết chọn 3, đôi khi 2 hoặc 4"
+196,197,Đồng ý tất cả (thiên lệch),"cộng 2 điểm mọi câu, kể cả rủi ro (RR) cũng cao"
+220,221,Hiểu ngược thang đo ở một thang,thang CL bị đảo ngược (1↔5)
+221,222,Mỏi mệt nửa sau,trả lời ngẫu nhiên từ NTR2 trở đi
+222,223,Chọn quanh mức giữa,"hầu hết chọn 3, đôi khi 2 hoặc 4"
+230,231,Mỏi mệt nửa sau,trả lời ngẫu nhiên từ RR1 trở đi
+243,244,Mỏi mệt nửa sau,trả lời ngẫu nhiên từ NTR4 trở đi
+255,256,Đồng ý tất cả (thiên lệch),"cộng 2 điểm mọi câu, kể cả rủi ro (RR) cũng cao"
+256,257,Chọn quanh mức giữa,"hầu hết chọn 3, đôi khi 2 hoặc 4"
+261,262,Xung đột câu gần nghĩa,NTR1=5 nhưng NTR2=1; RR1=1 nhưng RR2=5; YD1=1 nhưng YD2=5
+262,263,Mỏi mệt nửa sau,trả lời ngẫu nhiên từ NTR3 trở đi
+282,283,Đồng ý tất cả (thiên lệch),"cộng 2 điểm mọi câu, kể cả rủi ro (RR) cũng cao"
+296,297,Hiểu ngược thang đo ở một thang,thang YD bị đảo ngược (1↔5)
+316,317,Hiểu ngược thang đo ở một thang,thang RR bị đảo ngược (1↔5)
+318,319,Hiểu ngược thang đo ở một thang,thang RR bị đảo ngược (1↔5)
+326,327,Xung đột câu gần nghĩa,DSD1=5 nhưng DSD2=1; YD1=5 nhưng YD2=1
+327,328,Xung đột câu gần nghĩa,CL1=5 nhưng CL3=1; YD1=5 nhưng YD2=1
+338,339,Mỏi mệt nửa sau,trả lời ngẫu nhiên từ RR1 trở đi
+341,342,Xung đột câu gần nghĩa,YD1=1 nhưng YD2=5; RR1=1 nhưng RR2=5; NTR1=5 nhưng NTR2=1

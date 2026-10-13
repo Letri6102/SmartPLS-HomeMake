@@ -1,0 +1,11 @@
+# Thư mục của bản cũ, trang không còn dùng
+js/
+css/
+
+# File tạm khi đang mở Word/Excel
+~$*
+
+# File hệ thống
+Thumbs.db
+desktop.ini
+.DS_Store

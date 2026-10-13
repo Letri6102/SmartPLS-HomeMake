@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Phân Tích Số Liệu</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/base.css">
+<link rel="stylesheet" href="assets/css/data.css">
+<link rel="stylesheet" href="assets/css/model.css">
+<link rel="stylesheet" href="assets/css/results.css">
+<link rel="stylesheet" href="assets/css/rowcheck.css">
+<link rel="stylesheet" href="assets/css/bootstrap.css">
+<script>
+  try { const t = localStorage.getItem('ptsl-theme'); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+</script>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-in">
+    <div class="brand">
+      <svg class="mark" viewBox="0 0 32 32" aria-hidden="true">
+        <ellipse cx="20" cy="16" rx="9" ry="6.5" fill="currentColor" opacity=".22" stroke="currentColor" stroke-width="1.6"/>
+        <rect x="2" y="5" width="7" height="5" rx="1" fill="none" stroke="currentColor" stroke-width="1.6"/>
+        <rect x="2" y="13.5" width="7" height="5" rx="1" fill="none" stroke="currentColor" stroke-width="1.6"/>
+        <rect x="2" y="22" width="7" height="5" rx="1" fill="none" stroke="currentColor" stroke-width="1.6"/>
+        <path d="M11 7.5 L12.5 16 M11 16 H12.5 M11 24.5 L12.5 16" stroke="currentColor" stroke-width="1.4" fill="none"/>
+      </svg>
+      <div>
+        <strong>Phân Tích Số Liệu</strong>
+        <span>Đánh giá mô hình đo lường PLS-SEM</span>
+      </div>
+    </div>
+    <nav class="stepper" id="stepper" aria-label="Các bước">
+      <a href="#step1" data-s="1" class="active"><i>1</i>Dữ liệu</a>
+      <a href="#step2" data-s="2"><i>2</i>Mô hình</a>
+      <a href="#step3" data-s="3"><i>3</i>Kết quả</a>
+    </nav>
+    <div class="prefs">
+      <div class="seg" role="group" aria-label="Dấu thập phân" title="Dấu thập phân khi hiển thị và sao chép">
+        <button data-dec="." class="on">0.708</button>
+        <button data-dec=",">0,708</button>
+      </div>
+      <button class="iconbtn" id="btnTheme" title="Đổi giao diện sáng / tối" aria-label="Đổi giao diện sáng / tối">
+        <svg viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" fill="currentColor"/></svg>
+      </button>
+    </div>
+  </div>
+</header>
+
+<main class="page">
+
+  <!-- BƯỚC 1: DỮ LIỆU -->
+  <section class="panel" id="step1">
+    <div class="panel-head">
+      <h2><span class="num">1</span>Nhập dữ liệu khảo sát</h2>
+    </div>
+
+    <label id="drop" class="drop">
+      <input type="file" id="file" accept=".xlsx,.xls,.csv,.txt,.ods">
+      <svg viewBox="0 0 48 48" class="drop-ic" aria-hidden="true">
+        <rect x="9" y="5" width="30" height="38" rx="3" fill="none" stroke="currentColor" stroke-width="2"/>
+        <path d="M15 15h18M15 21h18M15 27h18M15 33h10M21 11v26M27 11v26" stroke="currentColor" stroke-width="1.4" opacity=".55"/>
+      </svg>
+      <span class="drop-t">Kéo thả file Excel hoặc CSV vào đây, hoặc <u>chọn file</u></span>
+      <span class="drop-s">Dòng đầu là tên biến (TC1, TC2…), mỗi dòng sau là một người trả lời</span>
+    </label>
+
+    <div class="filecard hidden" id="fileCard">
+      <div class="fc-ic">
+        <svg viewBox="0 0 24 24"><path d="M6 2h9l5 5v15H6z" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M15 2v5h5" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>
+      </div>
+      <div class="fc-main">
+        <strong id="fcName"></strong>
+        <span id="fcMeta"></span>
+      </div>
+      <label class="fc-sheet hidden" id="sheetWrap">Sheet <select id="sheet"></select></label>
+      <button class="btn" id="btnPreview">Xem dữ liệu</button>
+      <label class="btn">Đổi file<input type="file" id="file2" accept=".xlsx,.xls,.csv,.txt,.ods" hidden></label>
+    </div>
+
+    <div class="row mt">
+      <button class="btn link" id="btnSample">Chưa có file? Thử với dữ liệu mẫu (250 phiếu, 4 thang đo)</button>
+    </div>
+    <div id="preview" class="tablebox preview hidden"></div>
+  </section>
+
+  <!-- BƯỚC 2: MÔ HÌNH -->
+  <section class="panel locked" id="step2">
+    <div class="panel-head">
+      <h2><span class="num">2</span>Khai báo thang đo và mô hình</h2>
+      <span class="hint" id="lockHint">Nhập dữ liệu ở bước 1 trước</span>
+      <div class="seg mode-seg" role="group" aria-label="Cách khai báo">
+        <button data-mode="draw" class="on">Vẽ sơ đồ</button>
+        <button data-mode="text">Nhập dạng chữ</button>
+      </div>
+    </div>
+
+    <div class="draw" id="drawMode">
+      <aside class="palette">
+        <div class="side-head"><span>Biến quan sát</span><span class="count" id="palCount"></span></div>
+        <input type="search" id="palSearch" placeholder="Tìm biến…" aria-label="Tìm biến">
+        <div id="palList" class="pal-list"></div>
+        <button id="palAssign" class="btn sm" disabled>Chọn một thang đo trên sơ đồ để gán biến</button>
+        <p class="help">Kéo biến thả lên một thang đo để gán, hoặc thả vào chỗ trống để tạo thang đo mới. Bấm để chọn nhiều biến, giữ Shift để chọn một dải.</p>
+      </aside>
+      <div class="cv-main">
+        <div class="cv-tools" id="cvTools">
+          <div class="seg" role="group" aria-label="Công cụ">
+            <button data-tool="select" class="on" title="Chọn và di chuyển (V)">Chọn</button>
+            <button data-tool="link" title="Vẽ mũi tên quan hệ (C)">Nối</button>
+            <button data-tool="add" title="Thêm thang đo (N)">Thêm thang đo</button>
+          </div>
+          <button class="btn sm" data-cv="detect">Tự nhận diện</button>
+          <button class="btn sm" data-cv="auto">Tự sắp xếp</button>
+          <span class="cv-spacer"></span>
+          <label class="cv-check"><input type="checkbox" id="cvRes" checked> Hiện kết quả</label>
+          <div class="seg" role="group" aria-label="Thu phóng">
+            <button data-cv="zout" title="Thu nhỏ">−</button>
+            <button data-cv="zfit" id="cvZoom" title="Vừa khung">100%</button>
+            <button data-cv="zin" title="Phóng to">+</button>
+          </div>
+          <button class="btn sm" data-cv="png">Tải PNG</button>
+        </div>
+        <div class="cv-ctx hidden" id="cvCtx"></div>
+        <div class="canvas" id="canvas">
+          <div class="cv-svg"></div>
+          <input id="cvRename" class="cv-rename hidden" aria-label="Tên thang đo">
+          <div class="cv-empty">Kéo biến từ danh sách bên trái thả vào đây,<br>hoặc bấm “Tự nhận diện” để tạo nhanh các thang đo.</div>
+        </div>
+        <p class="help" id="cvHint"></p>
+      </div>
+    </div>
+
+    <div class="model-grid hidden" id="textMode">
+      <div class="col-edit">
+        <div class="field">
+          <div class="field-head">
+            <label for="model">Thang đo và biến quan sát</label>
+            <button class="btn sm" id="btnAuto">Tự nhận diện theo tên biến</button>
+          </div>
+          <textarea id="model" rows="7" spellcheck="false" placeholder="TC: TC1, TC2, TC3, TC4&#10;CL: CL1-CL5"></textarea>
+          <p class="help">Mỗi dòng một thang đo: <code>Tên: biến1, biến2</code>. Viết dải được: <code>CL1-CL5</code>.</p>
+        </div>
+
+        <div class="field">
+          <label for="paths">Quan hệ giữa các thang đo <em>(không bắt buộc)</em></label>
+          <textarea id="paths" rows="4" spellcheck="false" placeholder="TC, CL -> HL&#10;HL -> TT"></textarea>
+          <p class="help">Khai báo để có hệ số β, R², f² và sơ đồ có mũi tên. Để trống nếu chỉ đánh giá thang đo.</p>
+        </div>
+
+      </div>
+
+      <div class="col-side">
+        <div class="side-head">
+          <span>Các thang đo đã khai báo</span>
+          <span class="count" id="consCount"></span>
+        </div>
+        <div id="consPreview" class="cons"></div>
+        <div class="side-head mt">
+          <span>Biến trong file</span>
+          <input type="search" id="varSearch" placeholder="Tìm biến…" aria-label="Tìm biến">
+        </div>
+        <div id="vars" class="chips"></div>
+        <p class="help">Bấm vào một biến để chèn vào ô thang đo. Biến đã dùng được tô màu.</p>
+      </div>
+    </div>
+
+
+    <details class="adv adv-out">
+      <summary>Tùy chọn thuật toán <span class="adv-sum">mặc định giống SmartPLS 4</span></summary>
+      <div class="adv-grid">
+        <label>Lược đồ trọng số
+          <select id="scheme">
+            <option value="path" selected>Path (mặc định SmartPLS)</option>
+            <option value="factor">Factor</option>
+          </select>
+        </label>
+        <label>Ô bị trống
+          <select id="missing">
+            <option value="mean" selected>Thay bằng trung bình</option>
+            <option value="listwise">Bỏ cả dòng</option>
+          </select>
+        </label>
+        <label>Số vòng lặp tối đa
+          <input type="number" id="maxIter" value="3000" min="10" max="10000" title="Mặc định SmartPLS 4: 3.000">
+        </label>
+        <label>Tiêu chí dừng
+          <input type="text" value="10⁻⁷" disabled title="Giống SmartPLS 4, không đổi được">
+        </label>
+        <label>Trọng số khởi đầu
+          <input type="text" value="1,0" disabled title="Giống SmartPLS 4, không đổi được">
+        </label>
+        <p class="help adv-note">Path cần mô hình cấu trúc; khi chưa vẽ mũi tên nào, trang tự dùng Factor (chỉ đánh giá mô hình đo lường). Khi đã có mũi tên, mọi thang đo phải được nối vào mô hình. SmartPLS 4 không còn lược đồ Centroid; lược đồ PCA của SmartPLS 4 trang chưa hỗ trợ. Nên thay bằng trung bình khi mỗi biến trống dưới khoảng 5%, nhiều hơn thì nên bỏ cả dòng.</p>
+        <p class="help adv-note"><b>Phạm vi:</b> trang chỉ hỗ trợ PLS-SEM chuẩn với thang đo phản ánh (reflective, Mode A). Chưa hỗ trợ thang đo cấu tạo (formative, Mode B), PLSc (consistent PLS), biến điều tiết, thang đo bậc cao, phân tích đa nhóm (MGA), PLSpredict. Với các mô hình đó hãy dùng SmartPLS.</p>
+      </div>
+    </details>
+
+    <div class="runbar">
+      <span id="modelMsg" class="msg" role="alert"></span>
+      <button id="btnRun" class="btn primary">Chạy tất cả độ đo</button>
+    </div>
+  </section>
+
+  <!-- BƯỚC 3: KẾT QUẢ -->
+  <section class="panel locked" id="step3">
+    <div class="panel-head">
+      <h2><span class="num">3</span>Chạy các độ đo</h2>
+      <div class="row gap">
+        <span class="hint" id="runInfo">Bấm vào từng độ đo để chạy, hoặc chạy tất cả một lần</span>
+        <button id="btnExport" class="btn" disabled>Xuất Excel</button>
+        <button id="btnRunAll" class="btn primary sm">Chạy tất cả</button>
+      </div>
+    </div>
+    <div id="exclBanner" class="excl hidden" role="status"></div>
+    <div id="measures" class="measures"></div>
+    <div id="results"></div>
+  </section>
+
+  <details class="panel guide">
+    <summary>Ngưỡng đánh giá tham khảo</summary>
+    <table class="thr">
+      <tr><th>Chỉ số</th><th>Đạt</th><th>Cân nhắc</th><th>Không đạt</th><th>Nguồn</th></tr>
+      <tr><td>Outer loading</td><td>≥ 0,708</td><td>0,40 – 0,708</td><td>&lt; 0,40</td><td>Hair và cộng sự (2019)</td></tr>
+      <tr><td>Cronbach's α (chuẩn hóa), CR</td><td>0,70 – 0,95</td><td>0,60 – 0,70 hoặc &gt; 0,95</td><td>&lt; 0,60</td><td>Hair và cộng sự (2019)</td></tr>
+      <tr><td>rho_A</td><td>0,70 – 0,95</td><td>0,60 – 0,70 hoặc 0,95 – 1</td><td>&lt; 0,60 hoặc &gt; 1 (bất thường)</td><td>Dijkstra &amp; Henseler (2015); Hair và cộng sự (2019)</td></tr>
+      <tr><td>AVE</td><td>≥ 0,50</td><td></td><td>&lt; 0,50</td><td>Fornell &amp; Larcker (1981)</td></tr>
+      <tr><td>HTMT</td><td>&lt; 0,85</td><td>0,85 – 0,90</td><td>≥ 0,90</td><td>Henseler và cộng sự (2015)</td></tr>
+      <tr><td>VIF (inner)</td><td>&lt; 3</td><td>3 – 5</td><td>≥ 5</td><td>Hair và cộng sự (2019)</td></tr>
+      <tr><td>p-value (Bootstrapping)</td><td>&lt; 0,05</td><td></td><td>≥ 0,05</td><td>Hair và cộng sự (2019)</td></tr>
+      <tr><td>Cận trên CI 95% một phía của HTMT</td><td>&lt; 0,85</td><td>0,85 – 0,90</td><td>≥ 0,90</td><td>Henseler và cộng sự (2015)</td></tr>
+      <tr><td>Tương quan biến-tổng</td><td>≥ 0,30</td><td></td><td>&lt; 0,30</td><td>Nunnally &amp; Bernstein (1994)</td></tr>
+      <tr><td>R²</td><td colspan="3">0,25 yếu · 0,50 trung bình · 0,75 mạnh</td><td>Hair và cộng sự (2011)</td></tr>
+      <tr><td>f²</td><td colspan="3">0,02 nhỏ · 0,15 trung bình · 0,35 lớn</td><td>Cohen (1988)</td></tr>
+    </table>
+  </details>
+
+  <p class="foot">Mọi phép tính chạy ngay trên máy của bạn. Dữ liệu không được gửi đi đâu.</p>
+</main>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<!-- SheetJS để đọc Excel (cần Internet; CSV vẫn đọc được khi offline) -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script>
+  if (!window.XLSX) document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"><\/script>');
+</script>
+<script>
+  if (!window.XLSX) document.write('<script src="assets/lib/xlsx.full.min.js"><\/script>');
+</script>
+<!-- Lõi -->
+<script src="src/core/namespace.js"></script>
+<script src="src/core/distributions.js"></script>
+<script src="src/core/stats.js"></script>
+<!-- Dữ liệu -->
+<script src="src/data/sample-data.js"></script>
+<script src="src/data/csv-parser.js"></script>
+<script src="src/data/file-loader.js"></script>
+<!-- Mô hình -->
+<script src="src/model/model-parser.js"></script>
+<script src="src/model/text-editor.js"></script>
+<script src="src/model/canvas.js"></script>
+<!-- Phân tích -->
+<script src="src/analysis/fit.js"></script>
+<script src="src/analysis/assessment.js"></script>
+<script src="src/analysis/tables.js"></script>
+<script src="src/analysis/rowcheck.js"></script>
+<script src="src/analysis/bootstrap.js"></script>
+<!-- Giao diện -->
+<script src="src/ui/steps.js"></script>
+<script src="src/ui/measures.js"></script>
+<script src="src/ui/rows-view.js"></script>
+<script src="src/ui/bootstrap-view.js"></script>
+<script src="src/ui/prefs.js"></script>
+<!-- Xuất kết quả -->
+<script src="src/export/diagram.js"></script>
+<script src="src/export/xlsx-writer.js"></script>
+<script src="src/export/excel-export.js"></script>
+<script src="src/export/clipboard.js"></script>
+<!-- Khởi động -->
+<script src="src/app.js"></script>
+</body>
+</html>
