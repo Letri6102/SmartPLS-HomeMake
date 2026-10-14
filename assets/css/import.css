@@ -1,0 +1,53 @@
+/* Hộp thoại "Vẽ lại mô hình từ ảnh" */
+body.modal-open { overflow: hidden; }
+.modal { position: fixed; inset: 0; z-index: 60; background: rgba(15, 22, 33, .55); display: flex; align-items: center; justify-content: center; padding: 16px; }
+.modal.hidden { display: none; }
+.modal-box { background: var(--surface); color: var(--ink); border-radius: var(--r-lg); box-shadow: 0 12px 40px rgba(0,0,0,.25);
+  width: min(1280px, 100%); max-height: calc(100vh - 32px); display: flex; flex-direction: column; overflow: hidden; }
+.modal-head { display: flex; align-items: center; gap: 8px; padding: 14px 18px; border-bottom: 1px solid var(--line); }
+.modal-head h3 { margin: 0 auto 0 0; font-size: 18px; }
+.modal-foot { display: flex; align-items: center; gap: 10px; padding: 12px 18px; border-top: 1px solid var(--line); }
+.modal-foot .msg { margin-right: auto; color: var(--bad); font-size: 14px; }
+
+.imp-body { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 18px; padding: 16px 18px; overflow: auto; min-height: 0; }
+.imp-stage { position: relative; border: 1px solid var(--line); border-radius: var(--r-md); background: #fff; overflow: hidden; }
+.imp-stage img { display: block; width: 100%; height: auto; }
+.imp-stage svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.imp-status { margin: 10px 0 4px; font-size: 14px; font-weight: 500; }
+.imp-left .note, .imp-right .note { font-size: 13px; color: var(--ink-2); }
+
+.imp-right h4 { margin: 4px 0 8px; font-size: 15px; display: flex; align-items: center; gap: 8px; }
+.imp-right h4 .count { font-size: 12px; font-weight: 600; color: var(--ink-2); background: var(--surface-3); padding: 1px 8px; border-radius: 999px; }
+.imp-table { border: 1px solid var(--line); border-radius: var(--r-md); overflow: auto; margin-bottom: 16px; }
+.imp-table table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.imp-table th { text-align: left; font-weight: 600; color: var(--ink-2); background: var(--surface-2); padding: 6px 8px; border-bottom: 1px solid var(--line); }
+.imp-table td { padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.imp-table tr:last-child td { border-bottom: 0; }
+.imp-table tr.unnamed td { background: var(--warn-bg); }
+.imp-table input, .imp-table select { width: 100%; font: inherit; font-size: 13.5px; padding: 4px 6px; border: 1px solid var(--line-2); border-radius: var(--r-sm); background: var(--surface); color: var(--ink); box-sizing: border-box; }
+.imp-table td:nth-child(2) { width: 22%; } .imp-table td:nth-child(4) { width: 16%; min-width: 74px; }
+.imp-no { display: inline-flex; width: 22px; height: 22px; align-items: center; justify-content: center; border-radius: 50%; background: #E8590C; color: #fff; font-weight: 700; font-size: 12px; }
+.imp-hint { font-size: 12px; color: var(--ink-3); margin-top: 3px; }
+
+.imp-paths { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+.imp-path { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 13.5px; }
+.imp-path select { font: inherit; font-size: 13.5px; padding: 3px 6px; border: 1px solid var(--line-2); border-radius: var(--r-sm); background: var(--surface); color: var(--ink); max-width: 40%; }
+.imp-path.off select, .imp-path.off .arr { opacity: .45; }
+.imp-path .arr { color: var(--ink-2); }
+.imp-warn { color: var(--warn); font-size: 12.5px; font-weight: 600; }
+.imp-paths > .btn { align-self: flex-start; margin-top: 4px; }
+.imp-notes { margin: 0 0 12px; padding: 8px 12px 8px 26px; background: var(--warn-bg); color: var(--warn); border-radius: var(--r-md); font-size: 13px; }
+.imp-keep { display: flex; align-items: center; gap: 8px; font-size: 14px; margin: 4px 0 8px; }
+.imp-wait { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 48px 12px; text-align: center; color: var(--ink-2); }
+.imp-wait p { margin: 6px 0 0; }
+.spinner { width: 28px; height: 28px; border-radius: 50%; border: 3px solid var(--line); border-top-color: var(--primary); animation: impspin .9s linear infinite; }
+@keyframes impspin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }
+
+@media (max-width: 860px) {
+  .imp-body { grid-template-columns: 1fr; padding: 12px; }
+  .modal { padding: 0; }
+  .modal-box { max-height: 100vh; height: 100%; border-radius: 0; }
+  .modal-foot { flex-wrap: wrap; }
+  .modal-foot .msg { flex-basis: 100%; }
+}

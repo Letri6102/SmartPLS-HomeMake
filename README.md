@@ -14,6 +14,8 @@ Trang web tính các chỉ số đánh giá thang đo từ file Excel/CSV. Khôn
    - Công cụ **Nối** (phím C): kéo từ thang đo nguyên nhân sang thang đo kết quả để vẽ mũi tên.
    - Công cụ **Chọn** (phím V): kéo để di chuyển; bấm đúp để đổi tên; chọn rồi nhấn Delete để xóa;
      nút "Biến quan sát: bên trái…" đổi phía đặt biến; "Đảo chiều" đổi hướng mũi tên.
+   - **Hoàn tác / làm lại**: Ctrl+Z, Ctrl+Y (hoặc Ctrl+Shift+Z), hoặc nút ↶ ↷ trên thanh công cụ. Áp dụng cho mọi thay đổi
+     thang đo, biến, mũi tên, vị trí trên khung vẽ, kể cả khi dựng từ ảnh. Khi đang gõ trong ô chữ, Ctrl+Z hoàn tác trong ô đó.
    - **Tự sắp xếp** xếp lại theo các mũi tên; **Tải PNG** lưu ảnh sơ đồ. Sau khi chạy, sơ đồ hiện
      loading, β và R². Bố cục được nhớ theo file dữ liệu.
 
@@ -23,6 +25,14 @@ Trang web tính các chỉ số đánh giá thang đo từ file Excel/CSV. Khôn
    CL: CL1-CL5
    ```
    Hoặc bấm **Tự nhận diện theo tiền tố** (TC1, TC2… → TC).
+   **Vẽ lại từ ảnh**: bấm **Từ ảnh…** trên khung vẽ (hoặc kéo thả ảnh vào trang, hoặc dán ảnh bằng Ctrl+V) với ảnh chụp
+   sơ đồ SmartPLS. Trang nhận diện thang đo (hình tròn xanh), biến quan sát (hộp vàng), mũi tên và chiều mũi tên,
+   đọc chữ bằng OCR (Tesseract.js, lần đầu cần Internet) rồi ghép với tên cột trong file dữ liệu. Kiểm tra / sửa trong
+   bảng rồi bấm **Áp dụng**: mô hình và bố cục giống ảnh được đưa vào khung vẽ.
+   - Ảnh càng rõ (chữ cao từ ~10 điểm ảnh) thì OCR càng đúng. Chữ quá nhỏ: tên thang đo vẫn thường đúng
+     (trang dùng thêm độ dài chữ để đoán), nhưng số thứ tự biến có thể sai, hãy xem lại cột "Biến quan sát".
+   - Không có mạng: vẫn nhận diện hình dạng và mũi tên, chỉ cần tự chọn tên thang đo.
+   - Đường nét đứt (biến điều tiết) và thang đo bị cắt ngoài mép ảnh không được nhận diện.
 4. (Không bắt buộc) Khai báo mô hình cấu trúc, ví dụ `TC, CL -> HL`, để có hệ số β, R², f², VIF inner.
 5. Ở bước 3, bấm vào từng nút độ đo (Outer loading, Độ tin cậy & AVE, Giá trị phân biệt…) để chạy riêng độ đo đó,
    hoặc bấm **Chạy tất cả** (Ctrl+Enter). Mỗi nút hiện trạng thái: Chưa chạy / Đã chạy / số chỉ số chưa đạt / Cần chạy lại
@@ -72,6 +82,7 @@ tiêu chí đặt trước khi phân tích, không loại chỉ vì phiếu làm
 | VIF (outer) | Tham khảo (dùng cho thang đo cấu tạo) |
 | Fornell-Larcker, HTMT, Cross loadings | Giá trị phân biệt |
 | Mô hình cấu trúc | Hệ số β, R², R² hiệu chỉnh, f², VIF (inner) |
+| Path coefficients | Ma trận hệ số đường dẫn (giống SmartPLS), danh sách, tác động gián tiếp cụ thể, tổng tác động gián tiếp, tổng tác động |
 | Bootstrapping | T, p-value, khoảng tin cậy percentile và BCa, tác động gián tiếp, tổng tác động, HTMT |
 | Thống kê mô tả | N, giá trị thiếu, min, max, trung bình, độ lệch chuẩn, độ lệch, độ nhọn |
 
@@ -105,6 +116,7 @@ assets/
   css/results.css                Bước 3: nút độ đo, bảng kết quả, bảng kiểm, sơ đồ
   css/rowcheck.css               Dòng đáng ngờ
   css/bootstrap.css              Bootstrapping
+  css/import.css                 Hộp thoại nhập từ ảnh
   lib/                           (tùy chọn) xlsx.full.min.js để đọc Excel khi offline
 src/
   core/namespace.js              Trạng thái ứng dụng + tiện ích dùng chung (định dạng số, thông báo…)
@@ -116,6 +128,10 @@ src/
   model/model-parser.js          Đọc cú pháp khai báo thang đo và quan hệ
   model/text-editor.js           Chế độ nhập dạng chữ
   model/canvas.js                Khung vẽ mô hình kiểu SmartPLS
+  model/history.js               Hoàn tác / làm lại (Ctrl+Z, Ctrl+Y)
+  model/image-analysis.js        Nhận diện hình tròn, hộp biến, mũi tên trong ảnh sơ đồ
+  model/image-ocr.js             Đọc chữ trong ảnh (Tesseract.js)
+  model/image-import.js          Ghép chữ đọc được với tên biến, dựng mô hình và bố cục
   analysis/fit.js                Chạy PLS cho mô hình đang khai báo
   analysis/assessment.js         Đánh giá theo ngưỡng, bảng kiểm, đoạn văn mô tả
   analysis/tables.js             Dựng bảng kết quả cho từng độ đo
@@ -125,6 +141,7 @@ src/
   ui/measures.js                 Nút độ đo và hiển thị bảng
   ui/rows-view.js                Giao diện Dòng đáng ngờ
   ui/bootstrap-view.js           Giao diện Bootstrapping
+  ui/image-import-view.js        Hộp thoại vẽ lại mô hình từ ảnh
   ui/prefs.js                    Dấu thập phân, sáng/tối, chế độ khai báo
   export/xlsx-writer.js          Ghi file .xlsx có tô màu (tự viết, không cần thư viện)
   export/excel-export.js         Xuất kết quả ra Excel
@@ -133,3 +150,12 @@ src/
   app.js                         Nối sự kiện và khởi động
 du_lieu_mau.csv, du_lieu_thu_nghiem.csv, data_test.csv, data_test_kho.csv   Dữ liệu thử
 ```
+
+## Cập nhật rà soát 14/10/2026
+
+Xem `docs/SMARTPLS4-AUDIT.md` để biết phạm vi tương thích, nguồn đối chiếu và những khác biệt chưa xác nhận với SmartPLS 4.
+
+- Bàn tay (H) hoặc giữ nút chuột giữa để kéo khung; Ctrl + lăn chuột để thu phóng.
+- **Vừa khung** hiển thị toàn mô hình; **Mở rộng** mở vùng vẽ lớn, Escape để trở về.
+- Bootstrap căn dấu theo mô hình gốc. BCa chỉ khả dụng khi jackknife đầy đủ; hủy sẽ không lưu kết quả đang tính dở.
+- Chạy kiểm tra số học: `node --test tests/numerics.test.js`.

@@ -13,6 +13,7 @@
     for (const b of m.blocks) for (const it of b.items)
       if (P.stats.sd(prepared.data[it]) === 0) throw new Error(`Biến "${it}" có mọi câu trả lời giống nhau (phương sai bằng 0)`);
     const res = P.stats.plsAlgorithm(prepared.data, m.blocks, m.paths, m.plsOpts);
+    if (!res.converged) throw new Error(`PLS chưa hội tụ sau ${res.iterations} vòng lặp. Hãy kiểm tra mô hình và dữ liệu trước khi diễn giải kết quả.`);
     res.paths = m.paths; res.prepared = prepared; res.plsOpts = m.plsOpts;
     return res;
   };

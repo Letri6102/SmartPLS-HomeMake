@@ -1,0 +1,18 @@
+/* assets/css/bootstrap.css — Độ đo "Bootstrapping": tùy chọn, tiến trình, điều hướng kết quả */
+
+.bt-set { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px 16px; padding: 12px 14px; margin-bottom: 14px;
+  border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface-2); }
+.bt-set label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--ink-2); font-weight: 500; }
+.bt-set select, .bt-set input { font-size: 14px; }
+.bt-set input[type=number] { width: 90px; }
+.bt-set .btn { margin-left: auto; }
+.bt-info { font-size: 13.5px; color: var(--ink-2); margin: 0 0 10px; }
+.bt-nav { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 16px; padding: 4px; border-radius: var(--r-md); background: var(--surface-3); }
+.bt-nav button { border: 0; background: none; font: 500 13.5px var(--font); color: var(--ink-2); padding: 6px 12px; border-radius: var(--r-sm); cursor: pointer; }
+.bt-nav button:hover { color: var(--ink); }
+.bt-nav button.on { background: var(--surface); color: var(--primary); font-weight: 600; box-shadow: var(--shadow); }
+@media (max-width: 520px) { .bt-set .btn { margin-left: 0; width: 100%; justify-content: center; } }
+.bt-dirs { padding: 10px 14px; margin: -6px 0 14px; border-radius: var(--r-md); background: var(--surface-2, var(--surface-3)); }
+.bt-dirs .note { margin: 0 0 8px; }
+.bt-dir-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 6px 16px; }
+.bt-dir-list label { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 13.5px; }

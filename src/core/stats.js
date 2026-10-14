@@ -269,7 +269,7 @@
       const { beta, r2 } = stdRegression(Y[j], P);
       const vif = vifFromCols(P);
       const k = P.length;
-      const r2adj = 1 - (1 - r2) * (n - 1) / (n - k - 1);
+      const r2adj = n > k + 1 ? 1 - (1 - r2) * (n - 1) / (n - k - 1) : NaN;
       return { predictors: pred[j], beta, r2, r2adj, vif };
     });
     // f²

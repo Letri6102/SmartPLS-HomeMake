@@ -13,6 +13,7 @@
 <link rel="stylesheet" href="assets/css/results.css">
 <link rel="stylesheet" href="assets/css/rowcheck.css">
 <link rel="stylesheet" href="assets/css/bootstrap.css">
+<link rel="stylesheet" href="assets/css/import.css">
 <script>
   try { const t = localStorage.getItem('ptsl-theme'); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
 </script>
@@ -113,9 +114,16 @@
             <button data-tool="select" class="on" title="Chọn và di chuyển (V)">Chọn</button>
             <button data-tool="link" title="Vẽ mũi tên quan hệ (C)">Nối</button>
             <button data-tool="add" title="Thêm thang đo (N)">Thêm thang đo</button>
+            <button data-tool="pan" title="Kéo khung nhìn (H)">Bàn tay</button>
+          </div>
+          <div class="seg" role="group" aria-label="Hoàn tác">
+            <button data-cv="undo" id="cvUndo" title="Hoàn tác (Ctrl+Z)" aria-label="Hoàn tác" disabled>↶</button>
+            <button data-cv="redo" id="cvRedo" title="Làm lại (Ctrl+Y hoặc Ctrl+Shift+Z)" aria-label="Làm lại" disabled>↷</button>
           </div>
           <button class="btn sm" data-cv="detect">Tự nhận diện</button>
           <button class="btn sm" data-cv="auto">Tự sắp xếp</button>
+          <button class="btn sm" data-cv="img" title="Tải ảnh chụp sơ đồ SmartPLS để vẽ lại mô hình (hoặc kéo thả / dán ảnh Ctrl+V)">Từ ảnh…</button>
+          <input type="file" id="imgFile" accept="image/*" hidden>
           <span class="cv-spacer"></span>
           <label class="cv-check"><input type="checkbox" id="cvRes" checked> Hiện kết quả</label>
           <div class="seg" role="group" aria-label="Thu phóng">
@@ -124,6 +132,8 @@
             <button data-cv="zin" title="Phóng to">+</button>
           </div>
           <button class="btn sm" data-cv="png">Tải PNG</button>
+          <button class="btn sm" data-cv="zfit">Vừa khung</button>
+          <button class="btn sm" data-cv="focus">Mở rộng</button>
         </div>
         <div class="cv-ctx hidden" id="cvCtx"></div>
         <div class="canvas" id="canvas">
@@ -241,6 +251,30 @@
   <p class="foot">Mọi phép tính chạy ngay trên máy của bạn. Dữ liệu không được gửi đi đâu.</p>
 </main>
 
+<!-- Hộp thoại: vẽ lại mô hình từ ảnh -->
+<div id="impModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="impTitle">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h3 id="impTitle">Vẽ lại mô hình từ ảnh</h3>
+      <button class="btn sm" data-imp="pick">Chọn ảnh khác</button>
+      <button class="btn sm" data-imp="close" aria-label="Đóng">✕</button>
+    </div>
+    <div class="imp-body">
+      <div class="imp-left">
+        <div class="imp-stage" id="impStage"></div>
+        <p class="imp-status" id="impStatus" role="status"></p>
+        <p class="note">Viền cam: thang đo và mũi tên nhận diện được (nét đứt: chưa chắc chiều). Viền xanh lá: hộp biến đã ghép tên; viền đỏ: chưa ghép.</p>
+      </div>
+      <div class="imp-right" id="impForm"></div>
+    </div>
+    <div class="modal-foot">
+      <span id="impMsg" class="msg" role="alert"></span>
+      <button class="btn" data-imp="close">Hủy</button>
+      <button class="btn primary" id="impApply" data-imp="apply">Áp dụng vào mô hình</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
 <!-- SheetJS để đọc Excel (cần Internet; CSV vẫn đọc được khi offline) -->
@@ -263,6 +297,10 @@
 <script src="src/model/model-parser.js"></script>
 <script src="src/model/text-editor.js"></script>
 <script src="src/model/canvas.js"></script>
+<script src="src/model/history.js"></script>
+<script src="src/model/image-analysis.js"></script>
+<script src="src/model/image-ocr.js"></script>
+<script src="src/model/image-import.js"></script>
 <!-- Phân tích -->
 <script src="src/analysis/fit.js"></script>
 <script src="src/analysis/assessment.js"></script>
@@ -274,6 +312,7 @@
 <script src="src/ui/measures.js"></script>
 <script src="src/ui/rows-view.js"></script>
 <script src="src/ui/bootstrap-view.js"></script>
+<script src="src/ui/image-import-view.js"></script>
 <script src="src/ui/prefs.js"></script>
 <!-- Xuất kết quả -->
 <script src="src/export/diagram.js"></script>

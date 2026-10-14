@@ -8,12 +8,12 @@
 (function (global) {
   'use strict';
   const COL = {
-    lvFill: '#DCE6FB', lvLine: '#2350C2', lvText: '#14306F', sel: '#E8590C',
-    indFill: '#FFF4D2', indLine: '#C99A2E', indText: '#4A3800',
+    lvFill: '#3184BD', lvLine: '#21638F', lvText: '#FFFFFF', sel: '#E8590C',
+    indFill: '#FFDF72', indLine: '#C99A2E', indText: '#4A3800',
     edge: '#6B7588', path: '#2350C2', good: '#1C7A4A', warn: '#9A5B00', bad: '#B3261E', ghost: '#9AA3B2'
   };
   const FONT = '"Be Vietnam Pro","Segoe UI",Arial,sans-serif';
-  const EX = 56, EY = 30, RW = 66, RH = 24, PITCH = 32, GAP = 84, GAPV = 58;
+  const EX = 48, EY = 48, RW = 76, RH = 26, PITCH = 36, GAP = 74, GAPV = 58;
   const SIDES = ['left', 'right', 'top', 'bottom'];
   const SIDE_NAME = { left: 'bên trái', right: 'bên phải', top: 'phía trên', bottom: 'phía dưới' };
 
@@ -54,6 +54,17 @@
     H.setPaths(paths.map(([f, t]) => `${f} -> ${t}`).join('\n'));
     H.onChange();
   }
+  function hasCycle(paths) {
+    const visiting = new Set(), done = new Set();
+    const visit = n => {
+      if (visiting.has(n)) return true;
+      if (done.has(n)) return false;
+      visiting.add(n);
+      if (paths.some(([f, t]) => f === n && visit(t))) return true;
+      visiting.delete(n); done.add(n); return false;
+    };
+    return paths.some(([f]) => visit(f));
+  }
 
   // ---------- Bố cục ----------
   function depthOf(blocks, paths) {
@@ -84,7 +95,7 @@
     }
     if (noPaths) {
       // Chưa có quan hệ: xếp lưới, mỗi cột 3 thang đo
-      const ys = [40, 40, 40, 40, 40, 40];
+      const ys = Array(Math.ceil(blocks.length / 3)).fill(40);
       blocks.forEach((b, i) => {
         const c = Math.floor(i / 3), h = unitH(b.items.length, 'left');
         st.layout[b.name] = { x: 60 + RW + GAP + EX + c * 420, y: ys[c] + h / 2, side: 'left' };
@@ -228,7 +239,7 @@
 
     const bb = bounds(blocks) || { x1: 0, y1: 0, x2: 400, y2: 200 };
     let X, Y, W, Hh;
-    if (opt.interactive) { X = 0; Y = 0; W = Math.max(bb.x2 + 160, opt.minW || 900); Hh = Math.max(bb.y2 + 120, 480); }
+    if (opt.interactive) { X = 0; Y = 0; W = Math.max(bb.x2 + 40, opt.minW || 1); Hh = Math.max(bb.y2 + 40, opt.minH || 1); }
     else { X = bb.x1 - 24; Y = bb.y1 - 24; W = bb.x2 - bb.x1 + 48; Hh = bb.y2 - bb.y1 + 48; }
     const z = opt.interactive ? st.zoom : 1;
     return `<svg xmlns="http://www.w3.org/2000/svg" width="${W * z}" height="${Hh * z}" viewBox="${X} ${Y} ${W} ${Hh}" font-family='${FONT}'>` +
@@ -255,13 +266,15 @@
     // Tự co vừa chiều ngang khung (khi người dùng chưa tự phóng to / thu nhỏ)
     if (!st.userZoom && !st.drag) {
       const bb = bounds(model.blocks);
-      st.zoom = bb ? Math.max(0.5, Math.min(1, +((wrap.clientWidth - 24) / (bb.x2 + 40)).toFixed(2))) : 1;
+      st.zoom = bb ? Math.max(0.1, Math.min(1, (wrap.clientWidth - 24) / (bb.x2 + 40), (wrap.clientHeight - 24) / (bb.y2 + 40))) : 1;
     }
-    wrap.querySelector('.cv-svg').innerHTML = svgString({ model, res, fmt: H.fmt, pvals: res && H.getPvals ? H.getPvals() : null, interactive: true, minW: (wrap.clientWidth - 4) / st.zoom });
+    wrap.querySelector('.cv-svg').innerHTML = svgString({ model, res, fmt: H.fmt, pvals: res && H.getPvals ? H.getPvals() : null, interactive: true, minW: (wrap.clientWidth - 2) / st.zoom, minH: (wrap.clientHeight - 2) / st.zoom });
+    wrap.dataset.tool = st.tool;
     wrap.classList.toggle('empty', !model.blocks.length);
     renderTools(model);
     renderPalette(model);
     store();
+    if (!st.drag && H.onRender) H.onRender();       // ghi lịch sử hoàn tác (không ghi giữa lúc đang kéo)
   }
 
   function renderTools(model) {
@@ -288,6 +301,7 @@
     const hint = {
       select: model.blocks.length ? 'Kéo thang đo để di chuyển. Bấm vào thang đo, biến hoặc mũi tên để chọn; phím Delete để xóa; bấm đúp vào thang đo để đổi tên.'
         : 'Kéo biến từ danh sách bên trái thả vào đây để tạo thang đo đầu tiên, hoặc bấm “Tự nhận diện”.',
+      pan: 'Kéo để di chuyển khung nhìn. Ctrl + lăn chuột để thu phóng; bấm Vừa khung để xem toàn bộ mô hình.',
       link: 'Kéo từ thang đo nguyên nhân sang thang đo kết quả để vẽ mũi tên quan hệ.',
       add: 'Bấm vào chỗ trống trên sơ đồ để đặt một thang đo mới.'
     };
@@ -419,7 +433,26 @@
 
   function bind() {
     const wrap = $('canvas');
+    function zoomAt(next, x = wrap.clientWidth / 2, y = wrap.clientHeight / 2) {
+      const old = st.zoom, left = wrap.scrollLeft, top = wrap.scrollTop;
+      st.zoom = Math.max(0.1, Math.min(3, next)); st.userZoom = true;
+      render();
+      wrap.scrollLeft = (left + x) * st.zoom / old - x;
+      wrap.scrollTop = (top + y) * st.zoom / old - y;
+    }
+    wrap.addEventListener('wheel', e => {
+      if (!e.ctrlKey && !e.metaKey) return;
+      e.preventDefault();
+      const box = wrap.getBoundingClientRect();
+      zoomAt(st.zoom * Math.exp(-e.deltaY * 0.002), e.clientX - box.left, e.clientY - box.top);
+    }, { passive: false });
     wrap.addEventListener('pointerdown', e => {
+      if (e.target.closest('input')) return;
+      if (e.button === 1 || (e.button === 0 && st.tool === 'pan')) {
+        e.preventDefault();
+        st.drag = { kind: 'pan', x: e.clientX, y: e.clientY, left: wrap.scrollLeft, top: wrap.scrollTop };
+        wrap.setPointerCapture(e.pointerId); return;
+      }
       if (e.button !== 0) return;
       commitRename();
       const svg = wrap.querySelector('svg'); if (!svg) return;
@@ -454,6 +487,10 @@
     });
     window.addEventListener('pointermove', e => {
       if (!st.drag) return;
+      if (st.drag.kind === 'pan') {
+        wrap.scrollLeft = st.drag.left + st.drag.x - e.clientX;
+        wrap.scrollTop = st.drag.top + st.drag.y - e.clientY; return;
+      }
       const p = svgPoint(e);
       if (st.drag.kind === 'move') {
         const L = st.layout[st.drag.name];
@@ -472,6 +509,7 @@
         if (to && to !== d.from) {
           if (paths.some(([f, t]) => f === d.from && t === to)) H.toast('Quan hệ này đã có');
           else if (paths.some(([f, t]) => f === to && t === d.from)) H.toast('Đã có quan hệ ngược chiều; chọn mũi tên đó rồi bấm “Đảo chiều” nếu cần', true);
+          else if (hasCycle([...paths, [d.from, to]])) H.toast('Quan hệ này tạo vòng lặp. Mô hình PLS cần đi một chiều.', true);
           else {
             paths.push([d.from, to]);
             st.sel = { t: 'p', id: paths.length - 1 };
@@ -482,6 +520,7 @@
       } else if (d.moved) normalize();
       render();
     });
+    window.addEventListener('pointercancel', () => { st.drag = null; render(); });
     $('cvRename').addEventListener('keydown', e => {
       if (e.key === 'Enter') { e.preventDefault(); commitRename(); }
       if (e.key === 'Escape') { $('cvRename').classList.add('hidden'); }
@@ -529,11 +568,19 @@
       const t = e.target.closest('[data-tool]'); if (t) { st.tool = t.dataset.tool; render(); return; }
       const b = e.target.closest('[data-cv]'); if (!b) return;
       const a = b.dataset.cv;
-      if (a === 'zin') { st.userZoom = true; st.zoom = Math.min(2, +(st.zoom + 0.1).toFixed(2)); }
-      if (a === 'zout') { st.userZoom = true; st.zoom = Math.max(0.4, +(st.zoom - 0.1).toFixed(2)); }
-      if (a === 'zfit') st.userZoom = false;
+      if (a === 'zin') { zoomAt(st.zoom * 1.2); return; }
+      if (a === 'zout') { zoomAt(st.zoom / 1.2); return; }
+      if (a === 'zfit') { st.userZoom = false; wrap.scrollLeft = 0; wrap.scrollTop = 0; }
+      if (a === 'focus') {
+        $('drawMode').classList.toggle('focused');
+        b.textContent = $('drawMode').classList.contains('focused') ? 'Thu gọn' : 'Mở rộng';
+        st.userZoom = false;
+      }
       if (a === 'auto') { st.manual = false; const m = read(); autoLayout(m.blocks, m.paths, true); }
       if (a === 'detect') { H.autoModel(); }
+      if (a === 'img') { if (H.importImage) H.importImage(); return; }
+      if (a === 'undo') { if (H.undo) H.undo(); return; }
+      if (a === 'redo') { if (H.redo) H.redo(); return; }
       if (a === 'png') { const m = read(); if (!m.blocks.length) return; const rr = st.showRes ? H.getResult() : null; global.PTSL.diagram.toPNG(svgString({ model: m, res: rr, fmt: H.fmt, pvals: rr && H.getPvals ? H.getPvals() : null }), 'so_do_mo_hinh.png'); return; }
       render();
     });
@@ -544,15 +591,19 @@
       if (a === 'del') deleteSel();
       if (a === 'rename') startRename(s.id);
       if (a === 'side') { const L = st.layout[s.id]; L.side = SIDES[(SIDES.indexOf(L.side) + 1) % 4]; st.manual = true; normalize(); }
-      if (a === 'flip') { const { blocks, paths } = read(); const p = paths[s.id]; paths[s.id] = [p[1], p[0]]; write(blocks, paths); }
+      if (a === 'flip') {
+        const { blocks, paths } = read(); const p = paths[s.id]; paths[s.id] = [p[1], p[0]];
+        if (hasCycle(paths)) H.toast('Đảo chiều sẽ tạo vòng lặp trong mô hình.', true);
+        else write(blocks, paths);
+      }
       render();
     });
     document.addEventListener('keydown', e => {
       if (!$('drawMode') || $('drawMode').classList.contains('hidden')) return;
       if (/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) return;
       if ((e.key === 'Delete' || e.key === 'Backspace') && st.sel) { e.preventDefault(); deleteSel(); render(); }
-      if (e.key === 'Escape') { st.sel = null; st.tool = 'select'; render(); }
-      const map = { v: 'select', c: 'link', n: 'add' };
+      if (e.key === 'Escape') { st.sel = null; st.drag = null; st.tool = 'select'; $('drawMode').classList.remove('focused'); const b = document.querySelector('[data-cv="focus"]'); if (b) b.textContent = 'Mở rộng'; render(); }
+      const map = { v: 'select', c: 'link', n: 'add', h: 'pan' };
       if (!e.ctrlKey && !e.metaKey && map[e.key.toLowerCase()]) { st.tool = map[e.key.toLowerCase()]; render(); }
     });
     window.addEventListener('resize', () => render());
@@ -568,6 +619,19 @@
   global.PTSL.canvas = {
     init(hooks) { H = hooks; bind(); },
     reset() { restore(); st.sel = null; st.palSel = new Set(); st.zoom = 1; st.userZoom = false; render(); },
-    render, staticSVG
+    render, staticSVG,
+    dims: { EX, EY, RW, RH },
+    // Trạng thái bố cục cho hoàn tác / làm lại
+    getSnapshot() { return { layout: JSON.parse(JSON.stringify(st.layout)), manual: st.manual }; },
+    setSnapshot(s) { st.layout = JSON.parse(JSON.stringify(s.layout || {})); st.manual = !!s.manual; st.sel = null; st.drag = null; },
+    // Đặt bố cục có sẵn (vd. dựng từ ảnh). layout = null: tự sắp xếp theo mũi tên
+    applyLayout(layout) {
+      st.sel = null; st.userZoom = false;
+      if (layout && Object.keys(layout).length) {
+        st.layout = JSON.parse(JSON.stringify(layout)); st.manual = true;
+        const m = read(); autoLayout(m.blocks, m.paths, false); normalize();
+      } else { st.layout = {}; st.manual = false; }
+      render();
+    }
   };
 })(window);

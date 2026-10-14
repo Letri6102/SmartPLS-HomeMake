@@ -12,7 +12,12 @@
   const drop = $('drop');
   ['dragenter', 'dragover'].forEach(ev => document.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
   ['dragleave', 'drop'].forEach(ev => document.addEventListener(ev, e => { if (ev === 'drop' || !e.relatedTarget) drop.classList.remove('over'); }));
-  document.addEventListener('drop', e => { e.preventDefault(); if (e.dataTransfer.files[0]) P.handleFile(e.dataTransfer.files[0]); });
+  document.addEventListener('drop', e => {
+    e.preventDefault();
+    const f = e.dataTransfer.files[0]; if (!f) return;
+    if (/^image\//.test(f.type)) P.openImageImport(f);       // thả ảnh sơ đồ: dựng mô hình từ ảnh
+    else P.handleFile(f);
+  });
   $('sheet').addEventListener('change', e => { $('model').value = ''; P.loadSheet(e.target.value); });
   $('btnPreview').addEventListener('click', () => {
     const box = $('preview'), show = box.classList.contains('hidden');
@@ -53,8 +58,14 @@
     getPvals: () => P.bootPvals(),
     fmt: v => P.util.f3(v), headers: () => state.headers, isNumeric: h => !!state.numeric[h],
     prefixOf: P.prefixOf, toast: P.util.toast, autoModel: P.autoModel,
+    onRender: () => P.historyTouch(), undo: () => P.undo(), redo: () => P.redo(),
+    importImage: () => (state.headers.length ? $('imgFile').click() : P.util.toast('Hãy nhập file dữ liệu ở bước 1 trước.', true)),
     fileKey: () => state.fileName + ':' + state.headers.join('|')
   });
+
+  // Dựng mô hình từ ảnh; hoàn tác / làm lại
+  P.initImageImport();
+  P.initHistory();
 
   // ---------- Bước 3: độ đo ----------
   $('btnRunAll').addEventListener('click', P.runAll);

@@ -143,6 +143,34 @@
       ] });
     }
 
+    // Path coefficients (giống báo cáo PLS-SEM algorithm của SmartPLS): ma trận, danh sách,
+    // tác động gián tiếp cụ thể, tổng tác động gián tiếp, tổng tác động (ước lượng điểm, chưa có p-value)
+    if (r.paths.length && P.bootstrap) {
+      const routes = P.bootstrap.indirectRoutes(names, r.paths);
+      const ex = P.bootstrap.extract(r, routes);
+      const matrix = obj => names.map(row => [C(row), ...names.map(col => {
+        const v = obj[`${row} → ${col}`];
+        return v === undefined ? C(null, 'dim') : C(v);
+      })]);
+      const list = obj => Object.entries(obj).map(([k, v]) => [C(k), C(v)]);
+      const pNote = 'Giá trị t, p-value và khoảng tin cậy: bấm nút “Bootstrapping”.';
+      T.push({ key: 'pathc', title: 'Path coefficients', sections: [
+        { title: 'Path coefficients: ma trận', head: ['', ...names], rows: matrix(ex.paths),
+          note: 'Đọc theo hàng → cột: hàng là thang đo nguyên nhân, cột là thang đo kết quả (giống SmartPLS).' },
+        { title: 'Path coefficients: danh sách', head: ['Quan hệ', 'Path coefficient (β)'], rows: list(ex.paths), note: pNote },
+        { title: 'Tác động gián tiếp cụ thể (specific indirect effects)', head: ['Đường gián tiếp', 'Hệ số'], rows: list(ex.indirect),
+          empty: 'Mô hình không có đường gián tiếp (cần ít nhất một thang đo trung gian).',
+          note: 'Tác động gián tiếp = tích các hệ số β trên đường đi.' },
+        { title: 'Tổng tác động gián tiếp (total indirect effects)', head: ['', ...names], rows: matrix(ex.totalIndirect),
+          empty: 'Mô hình không có đường gián tiếp.' },
+        { title: 'Tổng tác động (total effects)', head: ['', ...names], rows: matrix(ex.total),
+          note: 'Tổng tác động = tác động trực tiếp + tổng tác động gián tiếp. ' + pNote }
+      ] });
+      // Ma trận gián tiếp rỗng thì để trống bảng
+      const ti = T[T.length - 1].sections[3];
+      if (!Object.keys(ex.totalIndirect).length) ti.rows = [];
+    }
+
     // Thống kê mô tả
     {
       const rows = B.flatMap(b => b.items.map(it => {

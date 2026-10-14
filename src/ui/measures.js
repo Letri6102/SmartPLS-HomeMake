@@ -16,6 +16,7 @@
     { key: 'cross', group: 'Mô hình đo lường', title: 'Cross loadings', desc: 'Hệ số tải chéo giữa các thang đo' },
     { key: 'ovif', group: 'Mô hình đo lường', title: 'VIF (outer)', desc: 'Tham khảo; dùng cho thang đo cấu tạo' },
     { key: 'struct', group: 'Mô hình cấu trúc', title: 'Hệ số β, R², f²', desc: 'Kèm VIF inner', needsPaths: true },
+    { key: 'pathc', group: 'Mô hình cấu trúc', title: 'Path coefficients', desc: 'Ma trận β, tác động gián tiếp, tổng tác động', needsPaths: true },
     { key: 'boot', group: 'Mô hình cấu trúc', title: 'Bootstrapping', desc: 'T, p-value, khoảng tin cậy, tác động gián tiếp' },
     { key: 'desc', group: 'Dữ liệu', title: 'Thống kê mô tả', desc: 'N, trung bình, độ lệch chuẩn, skewness' },
     { key: 'rows', group: 'Dữ liệu', title: 'Dòng đáng ngờ', desc: 'Tìm, loại và tính lại' }

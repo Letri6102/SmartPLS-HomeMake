@@ -1,0 +1,19 @@
+/* assets/css/data.css — Bước 1: nhập dữ liệu */
+
+/* ============ STEP 1 ============ */
+.drop { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 30px 20px; border: 1.5px dashed var(--line-2);
+  border-radius: var(--r-lg); background: var(--surface-2); cursor: pointer; text-align: center; transition: border-color .15s, background .15s; }
+.drop:hover, .drop.over { border-color: var(--primary); background: var(--primary-soft); }
+.drop input { display: none; }
+.drop-ic { width: 44px; height: 44px; color: var(--primary); margin-bottom: 4px; }
+.drop-t { font-weight: 500; }
+.drop-t u { color: var(--primary); text-underline-offset: 3px; }
+.drop-s { font-size: 13.5px; color: var(--ink-2); }
+.filecard { display: flex; align-items: center; gap: 14px; padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface-2); flex-wrap: wrap; }
+.fc-ic { width: 40px; height: 40px; border-radius: var(--r-sm); background: var(--good-bg); color: var(--good); display: grid; place-items: center; }
+.fc-ic svg { width: 22px; height: 22px; }
+.fc-main { flex: 1; min-width: 180px; }
+.fc-main strong { display: block; word-break: break-all; }
+.fc-main span { font-size: 13.5px; color: var(--ink-2); }
+.fc-sheet { font-size: 13.5px; color: var(--ink-2); display: flex; align-items: center; gap: 6px; }
+.preview { margin-top: 14px; max-height: 360px; }

@@ -188,8 +188,11 @@
   }
 
   // Đổi dấu biến tiềm ẩn nếu mẫu bootstrap bị lật chiều (tổng loading âm)
-  function fixSigns(res) {
-    const sign = res.loadings.map(L => (L.reduce((a, v) => a + v, 0) < 0 ? -1 : 1));
+  function fixSigns(res, reference) {
+    // Align each resample with the original construct orientation, including
+    // constructs whose original loading sum is negative.
+    const sign = res.loadings.map((L, j) =>
+      (L.reduce((a, v, k) => a + v * (reference ? reference.loadings[j][k] : 1), 0) < 0 ? -1 : 1));
     if (sign.every(s => s === 1)) return res;
     res.loadings = res.loadings.map((L, j) => L.map(v => v * sign[j]));
     res.weights = res.weights.map((W, j) => W.map(v => v * sign[j]));
@@ -293,11 +296,12 @@
    * onProgress(done, total, ms, phase) với phase = 'boot' | 'jack'
    */
   async function run(ctx, opts, onProgress, isCancelled) {
+    if (!ctx.original.converged) throw new Error('Mô hình gốc chưa hội tụ; không thể thực hiện bootstrap.');
     const items = ctx.blocks.flatMap(b => b.items);
     const n = ctx.data[items[0]].length;
     const routes = indirectRoutes(ctx.blocks.map(b => b.name), ctx.paths);
     const orig = extract(ctx.original, routes);
-    const rand = rng(opts.seed || 1);
+    const rand = rng(opts.seed ?? 1);
     const cols = items.map(it => ctx.data[it]);
     const samples = [];
     let failed = 0, notConverged = 0;
@@ -312,11 +316,11 @@
           if (!R) { failed++; continue; }          // mẫu có biến hằng (phương sai 0)
           const res = plsCorr(R, ctx.blocks, ctx.paths, ctx.plsOpts);
           if (!res.converged) { notConverged++; continue; }
-          samples.push(extract(fixSigns(res), routes));
+          samples.push(extract(fixSigns(res, ctx.original), routes));
         } catch (e) { failed++; }
       }
       if (onProgress) onProgress(Math.min(B, s + chunk), B, Date.now() - t0, 'boot');
-      if (isCancelled && isCancelled()) break;
+      if (isCancelled && isCancelled()) throw new Error('Đã hủy bootstrapping.');
       await tick();
     }
     // Jackknife (bỏ từng dòng) để ước lượng hệ số gia tốc của khoảng tin cậy BCa
@@ -328,14 +332,16 @@
           const R = corLeaveOut(cols, pre, i);
           if (!R) continue;
           const res = plsCorr(R, ctx.blocks, ctx.paths, ctx.plsOpts);
-          if (res.converged) jack.push(extract(fixSigns(res), routes));
+          if (res.converged) jack.push(extract(fixSigns(res, ctx.original), routes));
         } catch (e) { /* bỏ qua dòng này */ }
       }
       if (onProgress) onProgress(Math.min(n, r + 50), n, Date.now() - t0, 'jack');
+      if (isCancelled && isCancelled()) throw new Error('Đã hủy bootstrapping.');
       await tick();
     }
     return {
-      stats: summarize(orig, samples, opts, jack, routes), done: samples.length, failed, notConverged,
+      // BCa acceleration requires the complete leave-one-out jackknife.
+      stats: summarize(orig, samples, opts, jack.length === n ? jack : [], routes), done: samples.length, failed, notConverged,
       jackknife: jack.length, requested: B, routes, opts, ms: Date.now() - t0
     };
   }
