@@ -11,7 +11,8 @@
 
   P.fmtP = v => f3(v);
   const pct = q => (q * 100).toFixed(1).replace(/\.0$/, '') + '%';
-  const DEFAULTS = { samples: 10000, tails: 2, alpha: 0.05, seed: 1 };   // 10.000 mẫu: mặc định SmartPLS 4
+  // Mặc định như SmartPLS: 10.000 mẫu, hai phía, 0,05, seed cố định, không đổi dấu
+  const DEFAULTS = { samples: 10000, tails: 2, alpha: 0.05, seed: 1, signChange: 'none' };
 
   const VIEWS = [
     { key: 'paths', label: 'Hệ số đường dẫn' },
@@ -134,18 +135,24 @@
       loadings: [meanTable(s.loadings, 'Outer loading: Mean, STDEV, T values, p values', 'Biến ← Thang đo', al)],
       weights: [meanTable(s.weights, 'Outer weight: Mean, STDEV, T values, p values', 'Biến → Thang đo', al)],
       r2: [meanTable(s.r2, 'R²: Mean, STDEV, T values, p values', 'Biến phụ thuộc', al)],
-      htmt: [{
-        title: 'HTMT: khoảng tin cậy một phía 95%', empty: 'Không có cặp thang đo nào tính được HTMT.',
-        head: ['Cặp thang đo', 'Original sample (O)', 'Sample mean (M)', 'Cận trên 95% (percentile)', 'Cận trên 95% (BCa)', 'Kết luận'],
-        rows: s.htmt.map(x => {
-          const cls = x.h95 < 0.85 ? 'good' : x.h95 < 0.9 ? 'warn' : 'bad';
-          return [C(x.key), C(x.O), C(x.M), C(x.h95, cls), C(x.hBca95),
-            C(x.h95 < 0.85 ? 'Đạt: cận trên < 0,85' : x.h95 < 0.9 ? 'Chấp nhận: cận trên < 0,90' : 'Không đạt: cận trên ≥ 0,90', cls)];
-        }),
-        note: 'Kiểm định HTMT luôn là một phía, α = 0,05 (cận trên = phân vị 95% của phân phối bootstrap), không phụ thuộc tùy chọn kiểm định ở trên, giống hướng dẫn SmartPLS. ' +
-          'Giá trị phân biệt đạt khi cận trên nhỏ hơn 0,85 (hoặc 0,90 với hai khái niệm gần nhau) (Henseler và cộng sự, 2015). Kết luận dựa trên cận trên percentile; cột BCa để tham khảo. ' +
-          'Với thang đo một biến, tương quan nội bộ trung bình lấy bằng 1, như SmartPLS.'
-      }],
+      htmt: [(() => {
+        const q = s.htmt[0] || { qLo: one ? al : al / 2, qHi: one ? 1 - al : 1 - al / 2 };
+        const rec = Math.abs(q.qHi - 0.95) < 1e-9;
+        return {
+          title: `HTMT: khoảng tin cậy (cận trên ${pct(q.qHi)})`, empty: 'Không có cặp thang đo nào tính được HTMT.',
+          head: ['Cặp thang đo', 'Original sample (O)', 'Sample mean (M)', `${pct(q.qLo)} (percentile)`, `${pct(q.qHi)} (percentile)`, 'Bias', `${pct(q.qLo)} (BCa)`, `${pct(q.qHi)} (BCa)`, 'Kết luận'],
+          rows: s.htmt.map(x => {
+            const cls = x.hi < 0.85 ? 'good' : x.hi < 0.9 ? 'warn' : 'bad';
+            return [C(x.key), C(x.O), C(x.M), C(x.lo), C(x.hi, cls), C(x.bias), C(x.bcaLo), C(x.bcaHi),
+              C(x.hi < 0.85 ? 'Đạt: cận trên < 0,85' : x.hi < 0.9 ? 'Chấp nhận: cận trên < 0,90' : 'Không đạt: cận trên ≥ 0,90', cls)];
+          }),
+          note: `Khoảng tin cậy của HTMT theo đúng tùy chọn kiểm định ở trên, như SmartPLS (${one ? 'một phía' : 'hai phía'}, mức ý nghĩa ${al}). ` +
+            'Giá trị phân biệt đạt khi cận trên nhỏ hơn 0,85 (hoặc 0,90 với hai khái niệm gần nhau) (Henseler và cộng sự, 2015). Kết luận dựa trên cận trên percentile; cột BCa để tham khảo. ' +
+            (rec ? 'Cận trên đang là phân vị 95%, đúng khuyến nghị kiểm định HTMT một phía ở mức 0,05 (Franke & Sarstedt, 2019). '
+              : `Khuyến nghị cho HTMT là cận trên một phía 95%: chọn “Một phía” với mức ý nghĩa 0,05 (hoặc “Hai phía” với 0,10) rồi chạy lại. Cận trên hiện tại (${pct(q.qHi)}) ${q.qHi > 0.95 ? 'chặt hơn' : 'lỏng hơn'} mức đó. `) +
+            'Với thang đo một biến, tương quan nội bộ trung bình lấy bằng 1, như SmartPLS.'
+        };
+      })()],
       rows: influenceSections(res)
     };
     const all = VIEWS.flatMap(v => views[v.key].map(sec => Object.assign(sec, { view: v.key })));
@@ -163,6 +170,7 @@
     if ($('btSamples')) {
       o.samples = +$('btSamples').value; o.tails = +$('btTails').value; o.alpha = +$('btAlpha').value;
       o.seed = Math.max(1, Math.floor(+$('btSeed').value || 1));
+      o.signChange = $('btSign').value === 'construct' ? 'construct' : 'none';
     }
     state.bootDirs = state.bootDirs || {};
     o.dirs = {};
@@ -171,11 +179,12 @@
   }
 
   function settingsHtml(o) {
-    const sel = (id, val, list) => `<select id="${id}">${list.map(([v, t]) => `<option value="${v}" ${+v === +val ? 'selected' : ''}>${t}</option>`).join('')}</select>`;
+    const sel = (id, val, list) => `<select id="${id}">${list.map(([v, t]) => `<option value="${v}" ${String(v) === String(val) ? 'selected' : ''}>${t}</option>`).join('')}</select>`;
     let h = `<div class="bt-set">
       <label>Số mẫu bootstrap ${sel('btSamples', o.samples, [[500, '500 (thử nhanh)'], [1000, '1.000'], [5000, '5.000'], [10000, '10.000 (mặc định SmartPLS 4)']])}</label>
       <label>Kiểm định ${sel('btTails', o.tails, [[2, 'Hai phía'], [1, 'Một phía (có hướng)']])}</label>
       <label>Mức ý nghĩa ${sel('btAlpha', o.alpha, [[0.1, '0,10'], [0.05, '0,05'], [0.01, '0,01']])}</label>
+      <label>Đổi dấu ${sel('btSign', o.signChange, [['none', 'Không đổi dấu (mặc định SmartPLS)'], ['construct', 'Theo thang đo']])}</label>
       <label>Seed <input type="number" id="btSeed" min="1" step="1" value="${o.seed}" title="Cùng seed thì kết quả lặp lại y hệt"></label>
       ${state.booting ? '<button class="btn sm danger" data-bt="stop">Dừng</button>' : `<button class="btn primary sm" data-bt="run">${P.bootFresh() ? 'Chạy lại' : 'Chạy Bootstrapping'}</button>`}
     </div>`;
@@ -192,7 +201,7 @@
   // Đổi kiểm định / hướng giả thuyết: nhớ lựa chọn và vẽ lại phần tùy chọn
   P.bootChange = function (el) {
     if (el.dataset.btDir) { state.bootDirs = state.bootDirs || {}; state.bootDirs[el.dataset.btDir] = +el.value; return; }
-    if (el.id === 'btTails' || el.id === 'btSamples' || el.id === 'btAlpha' || el.id === 'btSeed') {
+    if (['btTails', 'btSamples', 'btAlpha', 'btSeed', 'btSign'].includes(el.id)) {
       state.bootOpts = opts();
       if (el.id === 'btTails') P.showTab('boot');
     }
@@ -217,7 +226,7 @@
     }
     const res = state.boot.result;
     const skipped = (res.failed || 0) + (res.notConverged || 0);
-    h += `<p class="bt-info">${res.done.toLocaleString('vi-VN')} mẫu hợp lệ${res.failed ? `, ${res.failed} mẫu lỗi bị bỏ qua` : ''}${res.notConverged ? `, ${res.notConverged} mẫu chưa hội tụ bị loại` : ''}${res.done + skipped < res.requested ? ` (dừng sớm, yêu cầu ${res.requested.toLocaleString('vi-VN')})` : ''} · ${(res.ms / 1000).toFixed(1)} giây · seed ${res.opts.seed}</p>`;
+    h += `<p class="bt-info">${res.done.toLocaleString('vi-VN')} mẫu hợp lệ${res.failed ? `, ${res.failed} mẫu lỗi bị bỏ qua` : ''}${res.notConverged ? `, ${res.notConverged} mẫu chưa hội tụ bị loại` : ''}${res.done + skipped < res.requested ? ` (dừng sớm, yêu cầu ${res.requested.toLocaleString('vi-VN')})` : ''} · ${(res.ms / 1000).toFixed(1)} giây · seed ${res.opts.seed} · ${res.opts.signChange === 'construct' ? 'đổi dấu theo thang đo' : 'không đổi dấu'}</p>`;
     h += `<nav class="bt-nav" aria-label="Kết quả Bootstrapping">` + VIEWS.map(v =>
       `<button data-bt="view" data-v="${v.key}" class="${state.bootView === v.key ? 'on' : ''}">${v.label}</button>`).join('') + `</nav>`;
     h += P.bootVisibleSections().map(P.renderSection).join('');

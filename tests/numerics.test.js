@@ -94,3 +94,23 @@ test('HTMT with a single-item construct uses monotrait mean 1 in both engines',(
   near(a.htmt[iT][iH],ref); near(b.htmt[iT][iH],ref); near(a.htmt[iH][iT],ref);
   assert.ok(Number.isNaN(a.htmt[iT][iT]));
 });
+
+test('bootstrap default applies no sign changes; construct option aligns to the original',async()=>{
+  const f=fixture('du_lieu_mau.csv'); const original=S.plsAlgorithm(f.data,f.blocks,f.paths,{scheme:'path'});
+  // Mô hình "gốc" giả có thang đo TC ngược chiều: chỉ tùy chọn 'construct' mới lật dấu mẫu con theo nó
+  const j=f.blocks.findIndex(b=>b.name==='TC');
+  const flipped={...original,loadings:original.loadings.map((L,i)=>i===j?L.map(v=>-v):L)};
+  const ctx={...f,original:flipped,plsOpts:{scheme:'path'}}, o={samples:40,seed:2,tails:2,alpha:.05};
+  const none=await B.run(ctx,o), con=await B.run(ctx,{...o,signChange:'construct'});
+  const m=r=>r.stats.paths.find(x=>x.key==='TC → HL').M;
+  assert.ok(m(none)>0.3, 'default leaves resamples as estimated');
+  near(m(con),-m(none),1e-12);
+});
+
+test('HTMT bootstrap bounds follow the general test options',()=>{
+  const v=Array.from({length:101},(_,i)=>({htmt:{a:i/100}}));
+  const two=B.summarize({htmt:{a:.5}},v,{tails:2,alpha:.05},[],[]).htmt[0];
+  const one=B.summarize({htmt:{a:.5}},v,{tails:1,alpha:.05},[],[]).htmt[0];
+  near(two.lo,.025);near(two.hi,.975);near(one.lo,.05);near(one.hi,.95);
+  assert.equal(two.h95,undefined);
+});

@@ -4,7 +4,7 @@ Ngày 14/11/2026. Phạm vi mã: `src/core/stats.js`, `src/core/distributions.js
 
 ## Phần 1 — Mã hiện tại có đúng công thức không
 
-**Kết luận:** mọi công thức ứng dụng đang cài đều khớp với tài liệu, trừ một lựa chọn riêng trong bootstrap (đổi dấu). Điểm lệch về HTMT của thang đo một biến đã được sửa cùng ngày. Năm điểm còn lại không kết luận được vì tài liệu SmartPLS không công bố chi tiết.
+**Kết luận:** mọi công thức ứng dụng đang cài đều khớp với tài liệu, sau khi sửa hai điểm lệch cùng ngày: HTMT của thang đo một biến và mặc định đổi dấu trong bootstrap. Năm điểm còn lại không kết luận được vì tài liệu SmartPLS không công bố chi tiết.
 
 **Cách kiểm:** đọc từng dòng mã so với công thức, rồi chạy một kịch bản tính lại độc lập trên `du_lieu_mau.csv` (250 phiếu, 4 thang đo, 4 quan hệ) — 41 phép so đều khớp trong sai số 10⁻⁶. Đây là kiểm công thức, **không phải** so với bản xuất từ SmartPLS; chưa có bản xuất nào để đối chứng.
 
@@ -27,7 +27,7 @@ Ngày 14/11/2026. Phạm vi mã: `src/core/stats.js`, `src/core/distributions.js
 | Tác động gián tiếp, tổng tác động | `bootstrap.js` `extract` | Bằng `(I − B)⁻¹ − I` | Khớp |
 | Bootstrap: mean, STDEV (chia B−1), T = \|O/STDEV\| | `bootstrap.js` `summarize` | Ví dụ 10 giá trị | Khớp |
 | BCa: z0, hệ số gia tốc jackknife, phân vị hiệu chỉnh | `bootstrap.js` `summarize` | Đọc mã so với Efron (1987) | Khớp công thức |
-| HTMT inference một phía 95% | `bootstrap.js` `summarize` | Đọc mã | Khớp |
+| HTMT inference theo tùy chọn kiểm định chung (sửa 14/11/2026; trước đó luôn một phía 95%) | `bootstrap.js` `summarize` | Kiểm thử | Khớp |
 | Phân phối t, chuẩn, χ² | `distributions.js` | Bảng tra: t(10) = 2,228 → p = 0,050; z₀,₉₇₅ = 1,960; χ²₀,₀₀₁(10) = 29,588 | Khớp |
 | Hai engine (dữ liệu gốc và ma trận tương quan) | `stats.js` / `bootstrap.js` | Kiểm thử có sẵn, 4 bộ CSV | Khớp 10⁻⁸ |
 
@@ -36,7 +36,7 @@ Ngày 14/11/2026. Phạm vi mã: `src/core/stats.js`, `src/core/distributions.js
 | # | Điểm lệch | Bằng chứng | Mức ảnh hưởng |
 |---|---|---|---|
 | 1 | **Đã sửa.** Trước đây HTMT không được tính cho cặp có thang đo một biến; SmartPLS có tính. | Primer, Exhibit 4.18 báo cáo khoảng tin cậy HTMT cho cặp CUSA–COMP, trong đó CUSA chỉ có một biến. | Nay coi tương quan nội bộ trung bình của thang đo một biến bằng 1. Sách chỉ cho thấy SmartPLS có báo cáo giá trị này, không in công thức; quy ước bằng 1 là theo định nghĩa HTMT, cần đối chiếu số với SmartPLS. |
-| 2 | **Bootstrap đổi dấu** từng mẫu con theo loading của mô hình gốc. SmartPLS mặc định không đổi dấu. | Tài liệu SmartPLS không nêu tùy chọn đổi dấu trong bản 4. | Chỉ khác khi có mẫu con bị lật chiều; khi đó STDEV của ứng dụng nhỏ hơn. |
+| 2 | **Đã sửa.** Trước đây bootstrap đổi dấu từng mẫu con theo loading của mô hình gốc. | Sách Primer chọn “No Sign Changes” trong mọi ví dụ bootstrapping. | Nay mặc định không đổi dấu; đổi dấu theo thang đo còn là tùy chọn. Chỉ khác khi có mẫu con bị lật chiều. |
 
 ### 1.3 Chưa kết luận được
 

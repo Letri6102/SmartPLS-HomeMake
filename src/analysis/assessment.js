@@ -24,8 +24,8 @@
   // Cặp HTMT có cận trên khoảng tin cậy (bootstrap) lớn nhất, nếu đã chạy Bootstrapping cho mô hình hiện tại
   A.htmtUpper = function () {
     if (!P.bootFresh || !P.bootFresh()) return null;
-    const list = state.boot.result.stats.htmt.filter(x => Number.isFinite(x.h95));
-    return list.length ? list.reduce((m, x) => (x.h95 > m.h95 ? x : m)) : null;
+    const list = state.boot.result.stats.htmt.filter(x => Number.isFinite(x.hi));
+    return list.length ? list.reduce((m, x) => (x.hi > m.hi ? x : m)) : null;
   };
 
   // ---------- Tổng hợp các chỉ số cần đánh giá ----------
@@ -87,10 +87,10 @@
     }
     if (r.blocks.length > 1) {
       const has = Number.isFinite(a.htmtMax), up = A.htmtUpper();
-      const st = a.htmtMax >= 0.9 || (up && up.h95 >= 0.9) ? 'bad' : (a.htmtMax >= 0.85 || (up && up.h95 >= 0.85) || a.flFail.length) ? 'warn' : 'good';
+      const st = a.htmtMax >= 0.9 || (up && up.hi >= 0.9) ? 'bad' : (a.htmtMax >= 0.85 || (up && up.hi >= 0.85) || a.flFail.length) ? 'warn' : 'good';
       cards.push({ st, title: 'Giá trị phân biệt',
         text: (has ? `HTMT lớn nhất ${f3(a.htmtMax)} (${a.htmtPair}).` : 'Không tính được HTMT.') +
-          (up ? ` Cận trên CI 95% lớn nhất ${f3(up.h95)} (${up.key}).` : '') +
+          (up ? ` Cận trên khoảng tin cậy (phân vị ${+(up.qHi * 100).toFixed(1)}%) lớn nhất ${f3(up.hi)} (${up.key}).` : '') +
           (a.flFail.length ? ` Fornell-Larcker chưa đạt ở ${a.flFail.join(', ')}.` : ' Fornell-Larcker đạt.') +
           (a.single.length ? ` Thang đo một biến (${a.single.join(', ')}): HTMT lấy tương quan nội bộ bằng 1.` : ''),
         crit: 'HTMT < 0,85 (hoặc < 0,90) và Fornell-Larcker đạt' });
@@ -145,7 +145,7 @@
       const [hlo, hhi] = A.range(a.htmtVals);
       const has = a.htmtVals.length > 0;
       const up = A.htmtUpper();
-      const htmtOk = has && hhi < 0.9 && !(up && up.h95 >= 0.9), fl = !a.flFail.length;
+      const htmtOk = has && hhi < 0.9 && !(up && up.hi >= 0.9), fl = !a.flFail.length;
       let p3 = 'Về giá trị phân biệt, ';
       if (has) {
         p3 += `các giá trị HTMT nằm trong khoảng ${f3(hlo)} đến ${f3(hhi)}`;
@@ -156,8 +156,8 @@
       p3 += fl ? '. Theo tiêu chí Fornell-Larcker, căn bậc hai AVE của mỗi thang đo lớn hơn tương quan với các thang đo khác'
         : `. Theo tiêu chí Fornell-Larcker, cặp ${a.flFail.join(', ')} chưa đạt`;
       if (up) {
-        p3 += `. Cận trên khoảng tin cậy 95% (một phía) của HTMT lớn nhất là ${f3(up.h95)} (${up.key})` +
-          (up.h95 < 0.85 ? ', nhỏ hơn 0,85' : up.h95 < 0.9 ? ', nhỏ hơn 0,9' : ', vượt 0,9');
+        p3 += `. Cận trên khoảng tin cậy bootstrap (phân vị ${+(up.qHi * 100).toFixed(1)}%) của HTMT lớn nhất là ${f3(up.hi)} (${up.key})` +
+          (up.hi < 0.85 ? ', nhỏ hơn 0,85' : up.hi < 0.9 ? ', nhỏ hơn 0,9' : ', vượt 0,9');
       }
       p3 += htmtOk && fl ? '. Vì vậy giá trị phân biệt được đảm bảo.'
         : htmtOk ? '. Vì vậy giá trị phân biệt chưa được đảm bảo đầy đủ; cần xem lại các cặp chưa đạt Fornell-Larcker.'

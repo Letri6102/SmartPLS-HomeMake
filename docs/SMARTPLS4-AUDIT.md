@@ -11,7 +11,7 @@ Phạm vi: PLS-SEM chuẩn, dữ liệu chuẩn hóa, reflective Mode A. Đây l
 | HTMT | Dùng trị tuyệt đối của từng tương quan, phù hợp HTMT+ được SmartPLS mô tả. Thang đo một biến: tương quan nội bộ trung bình lấy bằng 1 (sửa 14/11/2026; trước đó không tính). |
 | Beta, R², VIF, f² | Hồi quy trên điểm construct chuẩn hóa. f² giữ điểm construct của mô hình đầy đủ, rồi bỏ predictor khỏi hồi quy; phù hợp hướng dẫn case study SmartPLS. R² hiệu chỉnh trả giá trị không xác định nếu không đủ bậc tự do. |
 | Bootstrap | Lấy mẫu có hoàn lại, cỡ mẫu bằng dữ liệu đã xử lý thiếu; mặc định 10.000. Seed tái lập trong ứng dụng, không đảm bảo cùng seed cho cùng chuỗi mẫu với SmartPLS. |
-| Đổi dấu bootstrap | Đã sửa: căn theo vector loadings của mô hình gốc, áp dụng cho cả bootstrap và jackknife. Đây là lựa chọn của ứng dụng, cần kiểm tra cấu hình đổi dấu khi so sánh SmartPLS. |
+| Đổi dấu bootstrap | Mặc định không đổi dấu (No Sign Changes, như các ví dụ SmartPLS trong sách Primer; sửa 14/11/2026). Tùy chọn “Theo thang đo” căn theo vector loadings của mô hình gốc, áp dụng cho cả bootstrap và jackknife. |
 | Percentile / BCa | Percentile nội suy tuyến tính. BCa dùng jackknife đầy đủ; không trả BCa khi thiếu một hoặc nhiều mẫu jackknife hợp lệ. Chưa hỗ trợ studentized. |
 | p-value | Hiện dùng Student t với df = B hợp lệ − 1. Tài liệu SmartPLS được kiểm tra không xác định đủ công thức này; chưa xác nhận tương đương. Ưu tiên xem thêm khoảng tin cậy bootstrap. |
 | Không có đường dẫn | Ứng dụng tự dùng Factor trên toàn bộ các cặp construct: đây là quy ước riêng, không coi là cùng mô hình với SmartPLS. |

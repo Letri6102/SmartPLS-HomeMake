@@ -7,6 +7,8 @@
  * Áp dụng cho: hệ số đường dẫn, tác động gián tiếp cụ thể, tổng tác động gián tiếp,
  *   tổng tác động, outer loading, outer weight, R², HTMT.
  * Mẫu bootstrap mà thuật toán PLS chưa hội tụ bị loại (đếm riêng), không đưa vào thống kê.
+ * Đổi dấu: mặc định KHÔNG đổi dấu mẫu con (No Sign Changes, như SmartPLS). opts.signChange = 'construct'
+ *   thì căn dấu từng thang đo của mẫu con theo loadings của mô hình gốc.
  * Kiểm định một phía có hướng: opts.dirs = { "A → B": +1 | -1 } (mặc định +1, giả thuyết dương).
  * Ảnh hưởng theo dòng (influence): dùng lại jackknife và số lần mỗi dòng xuất hiện trong từng mẫu
  *   bootstrap để biết dòng nào làm lệch hệ số, làm phình sai số chuẩn, hoặc làm đổi kết luận.
@@ -189,7 +191,7 @@
     return out;
   }
 
-  // Đổi dấu biến tiềm ẩn nếu mẫu bootstrap bị lật chiều (tổng loading âm)
+  // Tùy chọn 'construct': đổi dấu biến tiềm ẩn nếu mẫu con bị lật chiều so với mô hình gốc
   function fixSigns(res, reference) {
     // Align each resample with the original construct orientation, including
     // constructs whose original loading sum is negative.
@@ -276,11 +278,8 @@
           bcaLo: okBca ? quantile(sorted, bca(zLo)) : NaN, bcaHi: okBca ? quantile(sorted, bca(zHi)) : NaN,
           qLo, qHi
         };
-        // HTMT luôn được kiểm định một phía, α = 0,05 (cận trên 95%), không phụ thuộc tùy chọn chung
-        if (group === 'htmt') {
-          row.h95 = quantile(sorted, 0.95);
-          row.hBca95 = okBca ? quantile(sorted, bca(D.normInv(0.95))) : NaN;
-        }
+        // HTMT dùng chung tùy chọn kiểm định (như SmartPLS): cận trên = hi (phân vị qHi) / bcaHi.
+        // Muốn cận trên một phía 95% thì chọn kiểm định một phía, α = 0,05 (hoặc hai phía, α = 0,10).
         // Kết luận theo khoảng tin cậy: hai phía => khoảng không chứa 0; một phía => cận phía giả thuyết vượt 0
         row.ciSig = tails === 2 ? (row.lo > 0 || row.hi < 0) : (dir > 0 ? row.lo > 0 : row.hi < 0);
         row.bcaSig = tails === 2 ? (row.bcaLo > 0 || row.bcaHi < 0) : (dir > 0 ? row.bcaLo > 0 : row.bcaHi < 0);
@@ -368,7 +367,7 @@
   const tick = () => new Promise(r => setTimeout(r, 0));
 
   /**
-   * run({ data, blocks, paths, plsOpts, original }, { samples, seed, tails, alpha, dirs }, onProgress, isCancelled)
+   * run({ data, blocks, paths, plsOpts, original }, { samples, seed, tails, alpha, dirs, signChange }, onProgress, isCancelled)
    * data: { item: number[] } đã xử lý ô trống
    * onProgress(done, total, ms, phase) với phase = 'boot' | 'jack'
    */
@@ -379,6 +378,8 @@
     const routes = indirectRoutes(ctx.blocks.map(b => b.name), ctx.paths);
     const orig = extract(ctx.original, routes);
     const rand = rng(opts.seed ?? 1);
+    // Mặc định SmartPLS: không đổi dấu. Dùng chung cho mẫu bootstrap và jackknife.
+    const align = opts.signChange === 'construct' ? r => fixSigns(r, ctx.original) : r => r;
     const cols = items.map(it => ctx.data[it]);
     const samples = [], counts = [];
     let failed = 0, notConverged = 0;
@@ -393,7 +394,7 @@
           if (!R) { failed++; continue; }          // mẫu có biến hằng (phương sai 0)
           const res = plsCorr(R, ctx.blocks, ctx.paths, ctx.plsOpts);
           if (!res.converged) { notConverged++; continue; }
-          samples.push(extract(fixSigns(res, ctx.original), routes)); counts.push(cnt);
+          samples.push(extract(align(res), routes)); counts.push(cnt);
         } catch (e) { failed++; }
       }
       if (onProgress) onProgress(Math.min(B, s + chunk), B, Date.now() - t0, 'boot');
@@ -409,7 +410,7 @@
           const R = corLeaveOut(cols, pre, i);
           if (!R) continue;
           const res = plsCorr(R, ctx.blocks, ctx.paths, ctx.plsOpts);
-          if (res.converged) jackByRow[i] = extract(fixSigns(res, ctx.original), routes);
+          if (res.converged) jackByRow[i] = extract(align(res), routes);
         } catch (e) { /* bỏ qua dòng này */ }
       }
       if (onProgress) onProgress(Math.min(n, r + 50), n, Date.now() - t0, 'jack');
