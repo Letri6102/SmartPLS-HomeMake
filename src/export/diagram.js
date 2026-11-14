@@ -113,6 +113,17 @@
       const s = res.structural[idx[t]], k = s.predictors.indexOf(idx[f]);
       labels += label((x1 + x2) / 2, (y1 + y2) / 2, fmt(s.beta[k]), COL.path, true);
     });
+    // Biến điều tiết: đường nét đứt từ M tới giữa mũi tên X → Y
+    (res.mods || []).forEach(([M, X, Yn]) => {
+      const a = pos[idx[X]], b = pos[idx[Yn]], m = pos[idx[M]];
+      const [x1, y1] = ellipseEdge(a.cx, a.cy, b.cx - a.cx, b.cy - a.cy);
+      const [x2, y2] = ellipseEdge(b.cx, b.cy, a.cx - b.cx, a.cy - b.cy);
+      const mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
+      const [sx, sy] = ellipseEdge(m.cx, m.cy, mx - m.cx, my - m.cy);
+      edges += `<line x1="${sx}" y1="${sy}" x2="${mx}" y2="${my}" stroke="#5B6B7A" stroke-width="1.6" stroke-dasharray="5 4"/><circle cx="${mx}" cy="${my}" r="4.5" fill="#5B6B7A"/>`;
+      const it = (res.structural[idx[Yn]].interactions || []).find(q => q.mod === idx[M] && q.from === idx[X]);
+      if (it) labels += label(sx + (mx - sx) * 0.45, sy + (my - sy) * 0.45, fmt(it.beta), '#5B6B7A', true);
+    });
     // Biến tiềm ẩn
     B.forEach((b, j) => {
       const { cx, cy } = pos[j], s = res.structural[j];

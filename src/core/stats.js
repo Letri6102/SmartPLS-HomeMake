@@ -75,6 +75,41 @@
     return { beta, r2: dot(beta, rxy) };
   }
 
+  // Hồi quy OLS có hệ số chặn, hệ số KHÔNG chuẩn hóa theo biến dự báo (dùng khi có số hạng tương tác chưa chuẩn hóa)
+  function covRegression(y, Xcols) {
+    if (Xcols.length === 0) return { beta: [], r2: 0 };
+    const n = y.length, my = mean(y), mx = Xcols.map(mean);
+    const cv = (a, ma, b, mb) => { let s = 0; for (let i = 0; i < n; i++) s += (a[i] - ma) * (b[i] - mb); return s / (n - 1); };
+    const Cxx = Xcols.map((a, i) => Xcols.map((b, j) => cv(a, mx[i], b, mx[j])));
+    const cxy = Xcols.map((a, i) => cv(a, mx[i], y, my));
+    const beta = matVec(inverse(Cxx), cxy), vy = cv(y, my, y, my);
+    return { beta, r2: vy > 0 ? dot(beta, cxy) / vy : 0 };
+  }
+
+  // ---------- Biến điều tiết (two-stage, như SmartPLS 4) ----------
+  // mods: [[M, X, Y], ...] = M điều tiết quan hệ X → Y. Quan hệ X → Y và M → Y luôn có mặt trong mô hình.
+  function effectivePaths(paths, mods) {
+    const out = paths.map(p => p.slice()), has = new Set(out.map(([f, t]) => f + '>' + t));
+    (mods || []).forEach(([M, X, Y]) => [[X, Y], [M, Y]].forEach(([f, t]) => { if (!has.has(f + '>' + t)) { has.add(f + '>' + t); out.push([f, t]); } }));
+    return out;
+  }
+  const modKey = (M, X, Y) => `${M} x ${X} → ${Y}`;
+  /**
+   * Giai đoạn 2 cho một biến phụ thuộc: hồi quy y theo điểm các thang đo dự báo (đã chuẩn hóa)
+   * và các tích điểm M·X (giữ nguyên, không chuẩn hóa lại).
+   * Trả về beta, vif, f2 theo thứ tự [predCols..., prodCols...].
+   */
+  function modRegression(y, predCols, prodCols, withF2) {
+    const cols = [...predCols, ...prodCols];
+    const { beta, r2 } = covRegression(y, cols);
+    const out = { beta, r2, vif: vifFromCols(cols) };
+    if (withF2) out.f2 = cols.map((_, k) => {
+      const rest = cols.filter((__, q) => q !== k);
+      return (r2 - (rest.length ? covRegression(y, rest).r2 : 0)) / (1 - r2);
+    });
+    return out;
+  }
+
   // ---------- Cronbach's Alpha ----------
   // Bản gốc (như SPSS) – dựa trên phương sai của dữ liệu thô
   function cronbachAlpha(cols) {
@@ -116,9 +151,13 @@
    * data: { colName: number[] }   (đã xử lý missing)
    * blocks: [{ name, items: [colName...] }]
    * paths: [[from, to], ...] (tên construct)
-   * opts: { scheme: 'path'|'factor', maxIter, tol }  (SmartPLS 4 không còn lược đồ Centroid)
+   * opts: { scheme: 'path'|'factor', maxIter, tol, mods }  (SmartPLS 4 không còn lược đồ Centroid)
+   * opts.mods: [[M, X, Y], ...] biến điều tiết, ước lượng theo two-stage: giai đoạn 1 là mô hình
+   *   hiệu ứng chính (toàn bộ phần dưới đây); giai đoạn 2 hồi quy lại Y có thêm tích điểm M·X.
    */
   function plsAlgorithm(data, blocks, paths, opts = {}) {
+    const mods = opts.mods || [];
+    paths = effectivePaths(paths, mods);
     const maxIter = opts.maxIter || 3000;   // mặc định SmartPLS 4
     const tol = opts.tol || 1e-7;
     let scheme = opts.scheme === 'factor' ? 'factor' : 'path';
@@ -127,6 +166,10 @@
     // PLS cần ít nhất 2 thang đo: proxy bên trong của một thang đo được dựng từ các thang đo kề nó
     if (J < 2) throw new Error('Cần ít nhất 2 thang đo để ước lượng PLS-SEM (thuật toán PLS dựng proxy của mỗi thang đo từ các thang đo khác). Hãy khai báo thêm thang đo.');
     const idx = Object.fromEntries(blocks.map((b, i) => [b.name, i]));
+    for (const m of mods) {
+      if (m.some(x => !(x in idx))) throw new Error(`Biến điều tiết ${m.join(', ')} nhắc đến thang đo chưa khai báo.`);
+      if (m[0] === m[1] || m[0] === m[2] || m[1] === m[2]) throw new Error(`Biến điều tiết ${m[0]} phải khác hai thang đo của quan hệ ${m[1]} → ${m[2]}.`);
+    }
     const X = blocks.map(b => b.items.map(it => standardize(data[it])));
     const n = X[0][0].length;
 
@@ -266,6 +309,21 @@
     const structural = blocks.map((b, j) => {
       if (!pred[j].length) return null;
       const P = pred[j].map(i => Y[i]);
+      const ms = mods.filter(m => idx[m[2]] === j);
+      if (ms.length) {
+        // Giai đoạn 2: thêm tích điểm M·X của mô hình hiệu ứng chính, không chuẩn hóa lại
+        const prods = ms.map(([M, X]) => Y[idx[M]].map((v, i) => v * Y[idx[X]][i]));
+        const fit = modRegression(Y[j], P, prods, !opts.lite);
+        const k = P.length, kk = k + ms.length;
+        return {
+          predictors: pred[j], beta: fit.beta.slice(0, k), r2: fit.r2,
+          r2adj: n > kk + 1 ? 1 - (1 - fit.r2) * (n - 1) / (n - kk - 1) : NaN,
+          vif: fit.vif.slice(0, k), f2: fit.f2 ? fit.f2.slice(0, k) : undefined,
+          interactions: ms.map(([M, X, Yn], q) => ({
+            mod: idx[M], from: idx[X], key: modKey(M, X, Yn), beta: fit.beta[k + q], vif: fit.vif[k + q], f2: fit.f2 ? fit.f2[k + q] : undefined
+          }))
+        };
+      }
       const { beta, r2 } = stdRegression(Y[j], P);
       const vif = vifFromCols(P);
       const k = P.length;
@@ -274,7 +332,7 @@
     });
     // f²
     if (!opts.lite) structural.forEach((s, j) => {
-      if (!s) return;
+      if (!s || s.interactions) return;
       s.f2 = s.predictors.map((_, k) => {
         const rest = s.predictors.filter((__, q) => q !== k).map(i => Y[i]);
         const r2ex = rest.length ? stdRegression(Y[j], rest).r2 : 0;
@@ -285,7 +343,7 @@
     return {
       n, iterations: iter, converged, scheme,
       blocks, weights: W, loadings, cross, quality, outerVIF,
-      lvCor: LVcor, fornell, htmt, structural, scores: Y
+      lvCor: LVcor, fornell, htmt, structural, scores: Y, mods
     };
   }
 
@@ -308,7 +366,7 @@
 
   const api = {
     mean, variance, sd, standardize, cor, corMatrix, inverse,
-    vifFromCols, stdRegression, cronbachAlpha, cronbachAlphaStd,
+    vifFromCols, stdRegression, covRegression, modRegression, effectivePaths, modKey, cronbachAlpha, cronbachAlphaStd,
     itemTotalStats, plsAlgorithm, describe
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

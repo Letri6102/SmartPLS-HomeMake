@@ -2,6 +2,7 @@
  * model/model-parser.js — Đọc khai báo mô hình dạng chữ
  *   Thang đo:  "TC: TC1, TC2, TC3"  hoặc dải "CL1-CL5"
  *   Quan hệ:   "TC, CL -> HL"
+ *   Điều tiết: "M * X -> Y"  (M điều tiết quan hệ X -> Y)
  * và đọc các tùy chọn thuật toán đang chọn.
  */
 (function (P) {
@@ -54,23 +55,45 @@
     return blocks;
   };
 
-  P.parsePaths = function (text, blocks) {
+  // Tách một dòng quan hệ. Dòng điều tiết: "M * X -> Y" (M điều tiết quan hệ X → Y; cũng nhận "×").
+  // Trả về { chain: [[from...], [to...], ...] } hoặc { mods: [M...], from: [X...], to: [Y...] }; null nếu dòng trống.
+  P.splitPathLine = function (line) {
+    line = line.replace(/#.*$/, '').trim();
+    if (!line) return null;
+    const list = s => s.split(/[,;\s]+/).filter(Boolean);
+    const parts = line.split(/\s*(?:->|=>|→)\s*/);
+    if (parts.length < 2) return { bad: true };
+    if (/[*×]/.test(line)) {
+      const lhs = parts[0].split(/\s*[*×]\s*/);
+      if (parts.length !== 2 || lhs.length !== 2) return { bad: true, mod: true };
+      return { mods: list(lhs[0]), from: list(lhs[1]), to: list(parts[1]) };
+    }
+    return { chain: parts.map(list) };
+  };
+
+  // Quan hệ và biến điều tiết. mods: [[M, X, Y], ...]; quan hệ X → Y và M → Y được tự thêm vào paths (như SmartPLS 4).
+  P.parseStructure = function (text, blocks) {
     const names = new Set(blocks.map(b => b.name));
-    const paths = [], key = new Set();
+    const paths = [], key = new Set(), mods = [], mkey = new Set();
+    const need = x => { if (!names.has(x)) throw new Error(`Quan hệ nhắc đến thang đo "${x}" nhưng chưa khai báo`); };
+    const add = (f, t) => {
+      need(f); need(t);
+      if (f === t) throw new Error(`Quan hệ "${f} -> ${t}" trỏ vào chính nó`);
+      const k = f + '>' + t;
+      if (!key.has(k)) { key.add(k); paths.push([f, t]); }
+    };
     text.split(/\r?\n/).forEach((line, ln) => {
-      line = line.replace(/#.*$/, '').trim();
-      if (!line) return;
-      const parts = line.split(/\s*(?:->|=>|→)\s*/);
-      if (parts.length < 2) throw new Error(`Quan hệ dòng ${ln + 1}: viết theo dạng A -> B`);
-      for (let p = 0; p < parts.length - 1; p++) {
-        const from = parts[p].split(/[,;\s]+/).filter(Boolean);
-        const to = parts[p + 1].split(/[,;\s]+/).filter(Boolean);
-        for (const f of from) for (const t of to) {
-          for (const x of [f, t]) if (!names.has(x)) throw new Error(`Quan hệ nhắc đến thang đo "${x}" nhưng chưa khai báo`);
-          if (f === t) throw new Error(`Quan hệ "${f} -> ${t}" trỏ vào chính nó`);
-          const k = f + '>' + t;
-          if (!key.has(k)) { key.add(k); paths.push([f, t]); }
-        }
+      const d = P.splitPathLine(line);
+      if (!d) return;
+      if (d.bad) throw new Error(d.mod ? `Quan hệ dòng ${ln + 1}: biến điều tiết viết theo dạng M * X -> Y` : `Quan hệ dòng ${ln + 1}: viết theo dạng A -> B`);
+      if (d.chain) { for (let p = 0; p < d.chain.length - 1; p++) for (const f of d.chain[p]) for (const t of d.chain[p + 1]) add(f, t); return; }
+      if (!d.mods.length || !d.from.length || !d.to.length) throw new Error(`Quan hệ dòng ${ln + 1}: biến điều tiết viết theo dạng M * X -> Y`);
+      for (const M of d.mods) for (const X of d.from) for (const Y of d.to) {
+        need(M);
+        if (M === X || M === Y) throw new Error(`Biến điều tiết "${M}" phải khác hai thang đo của quan hệ ${X} -> ${Y}`);
+        add(X, Y); add(M, Y);
+        const k = M + '*' + X + '>' + Y;
+        if (!mkey.has(k)) { mkey.add(k); mods.push([M, X, Y]); }
       }
     });
     const adj = {}; paths.forEach(([f, t]) => (adj[f] = adj[f] || []).push(t));
@@ -81,15 +104,16 @@
       visiting.add(v); (adj[v] || []).forEach(dfs); visiting.delete(v); done.add(v);
     };
     Object.keys(adj).forEach(dfs);
-    return paths;
+    return { paths, mods };
   };
+  P.parsePaths = (text, blocks) => P.parseStructure(text, blocks).paths;
 
   // Mô hình + tùy chọn thuật toán đang khai báo (báo lỗi nếu sai)
   P.readModel = function () {
     const blocks = P.parseModel($('model').value, false);
-    const paths = P.parsePaths($('paths').value, blocks);
+    const { paths, mods } = P.parseStructure($('paths').value, blocks);
     const scheme = $('scheme').value || 'path';  // không có quan hệ thì stats.js tự chuyển sang Factor
-    return { blocks, paths, plsOpts: { scheme, maxIter: +$('maxIter').value || 3000, tol: 1e-7 } };
+    return { blocks, paths, mods, plsOpts: { scheme, maxIter: +$('maxIter').value || 3000, tol: 1e-7, mods } };
   };
 
   // Chữ ký của mô hình hiện tại; đổi chữ ký nghĩa là kết quả cũ không còn đúng

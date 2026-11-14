@@ -364,7 +364,9 @@ Giai đoạn 2: I = Y_X · Y_M  (KHÔNG chuẩn hóa lại I)
              Y = p1·Y_X + p2·Y_M + p3·I + ε
 ```
 
-SmartPLS 4 tự thêm đường dẫn `M → Y`. Điểm dùng để nhân theo đúng lựa chọn standardized / unstandardized / mean-centered. Tương tác ba chiều: kéo thêm đường dẫn từ biến điều tiết thứ hai vào tương tác đã có.
+SmartPLS 4 tự thêm đường dẫn `M → Y`. Kết quả mô hình đo lường (loading, độ tin cậy, HTMT) lấy từ giai đoạn 1; kết quả mô hình cấu trúc lấy từ giai đoạn 2, khi mọi thang đo được biểu diễn bằng điểm của chính nó [Primer, chương 7].
+
+Cách ứng dụng cài (`stats.js` `modRegression`, `bootstrap.js` `applyMods`): giai đoạn 2 là hồi quy OLS có hệ số chặn của `Y` theo điểm chuẩn hóa của các thang đo dự báo và tích `Y_M · Y_X` để nguyên; các biến phụ thuộc không bị điều tiết giữ nguyên kết quả giai đoạn 1. Bootstrap làm lại cả hai giai đoạn trên từng mẫu con. Hệ số của tương tác được báo cáo với khóa `M x X → Y`. Điểm dùng để nhân theo đúng lựa chọn standardized / unstandardized / mean-centered. Tương tác ba chiều: kéo thêm đường dẫn từ biến điều tiết thứ hai vào tương tác đã có.
 
 ```
 Simple slope:  hiệu ứng của X lên Y tại M = m  là  p1 + p3·m ;  vẽ tại m = −1 SD, 0, +1 SD

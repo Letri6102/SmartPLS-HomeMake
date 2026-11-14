@@ -10,7 +10,7 @@
   const COL = {
     lvFill: '#3184BD', lvLine: '#21638F', lvText: '#FFFFFF', sel: '#E8590C',
     indFill: '#FFDF72', indLine: '#C99A2E', indText: '#4A3800',
-    edge: '#6B7588', path: '#2350C2', good: '#1C7A4A', warn: '#9A5B00', bad: '#B3261E', ghost: '#9AA3B2'
+    edge: '#6B7588', path: '#2350C2', mod: '#5B6B7A', good: '#1C7A4A', warn: '#9A5B00', bad: '#B3261E', ghost: '#9AA3B2'
   };
   const FONT = '"Be Vietnam Pro","Segoe UI",Arial,sans-serif';
   const EX = 48, EY = 48, RW = 76, RH = 26, PITCH = 36, GAP = 74, GAPV = 58;
@@ -31,27 +31,33 @@
 
   // ---------- Đọc / ghi mô hình dạng chữ ----------
   function readPaths(blocks) {
-    const names = new Set(blocks.map(b => b.name)), out = [], seen = new Set();
+    const names = new Set(blocks.map(b => b.name)), out = [], seen = new Set(), mods = [], mseen = new Set();
+    const add = (f, t) => { if (!names.has(f) || !names.has(t) || f === t || seen.has(f + '>' + t)) return; seen.add(f + '>' + t); out.push([f, t]); };
     H.getPaths().split(/\r?\n/).forEach(line => {
-      line = line.replace(/#.*$/, '').trim(); if (!line) return;
-      const parts = line.split(/\s*(?:->|=>|→)\s*/);
-      for (let p = 0; p < parts.length - 1; p++) {
-        const from = parts[p].split(/[,;\s]+/).filter(Boolean), to = parts[p + 1].split(/[,;\s]+/).filter(Boolean);
-        for (const f of from) for (const t of to) {
-          if (!names.has(f) || !names.has(t) || f === t || seen.has(f + '>' + t)) continue;
-          seen.add(f + '>' + t); out.push([f, t]);
-        }
+      const d = H.splitPathLine(line);
+      if (!d || d.bad) return;
+      if (d.chain) { for (let p = 0; p < d.chain.length - 1; p++) for (const f of d.chain[p]) for (const t of d.chain[p + 1]) add(f, t); return; }
+      for (const M of d.mods) for (const X of d.from) for (const Y of d.to) {
+        if (!names.has(M) || !names.has(X) || !names.has(Y) || M === X || M === Y || X === Y) continue;
+        add(X, Y); add(M, Y);
+        const k = M + '*' + X + '>' + Y;
+        if (!mseen.has(k)) { mseen.add(k); mods.push([M, X, Y]); }
       }
     });
-    return out;
+    return { paths: out, mods };
   }
   function read() {
     const blocks = H.parseModel();
-    return { blocks, paths: readPaths(blocks) };
+    return Object.assign({ blocks }, readPaths(blocks));
   }
-  function write(blocks, paths) {
+  // mods không truyền: giữ các hiệu ứng điều tiết hiện có. Hiệu ứng nào mất quan hệ X → Y hoặc M → Y thì bị bỏ.
+  function write(blocks, paths, mods) {
+    const names = new Set(blocks.map(b => b.name)), has = new Set(paths.map(([f, t]) => f + '>' + t));
+    const cur = mods || readPaths(H.parseModel()).mods;
+    const keep = cur.filter(([M, X, Y]) => names.has(M) && has.has(X + '>' + Y) && has.has(M + '>' + Y));
+    if (keep.length < cur.length) H.toast('Đã bỏ hiệu ứng điều tiết gắn với quan hệ vừa thay đổi');
     H.setModel(blocks.map(b => `${b.name}: ${b.items.join(', ')}`).join('\n'));
-    H.setPaths(paths.map(([f, t]) => `${f} -> ${t}`).join('\n'));
+    H.setPaths(paths.map(([f, t]) => `${f} -> ${t}`).concat(keep.map(([M, X, Y]) => `${M} * ${X} -> ${Y}`)).join('\n'));
     H.onChange();
   }
   function hasCycle(paths) {
@@ -177,9 +183,29 @@
       `<text x="${x}" y="${y + 4}" text-anchor="middle" font-size="11.5" font-weight="${bold ? 700 : 500}" fill="${color}">${esc(text)}</text>`;
   }
 
+  // Hai đầu mút của mũi tên f → t theo bố cục hiện tại
+  function pathGeom(f, t) {
+    const a = st.layout[f], b = st.layout[t]; if (!a || !b) return null;
+    const [x1, y1] = ellipseEdge(a.x, a.y, b.x - a.x, b.y - a.y);
+    const [x2, y2] = ellipseEdge(b.x, b.y, a.x - b.x, a.y - b.y);
+    return { x1, y1, x2, y2 };
+  }
+  // Mũi tên gần điểm p nhất (trong phạm vi tol), trả về chỉ số trong paths hoặc -1
+  function hitPath(p, paths, tol) {
+    let best = -1, bd = tol;
+    paths.forEach(([f, t], i) => {
+      const g = pathGeom(f, t); if (!g) return;
+      const dx = g.x2 - g.x1, dy = g.y2 - g.y1, L2 = dx * dx + dy * dy;
+      const u = L2 ? Math.max(0, Math.min(1, ((p.x - g.x1) * dx + (p.y - g.y1) * dy) / L2)) : 0;
+      const d = Math.hypot(p.x - g.x1 - u * dx, p.y - g.y1 - u * dy);
+      if (d < bd) { bd = d; best = i; }
+    });
+    return best;
+  }
+
   // ---------- Vẽ SVG (dùng chung cho khung vẽ và hình xuất) ----------
   function svgString(opt) {
-    const { blocks, paths } = opt.model;
+    const { blocks, paths } = opt.model, mods = opt.model.mods || [];
     const res = opt.res, fmt = opt.fmt || (v => v.toFixed(3));
     const resOf = {};
     if (res) res.blocks.forEach((b, j) => {
@@ -221,6 +247,22 @@
         labels += label((x1 + x2) / 2, (y1 + y2) / 2, fmt(v) + (pv !== undefined ? ` (${fmt(pv)})` : ''), COL.path, true);
       }
     });
+    // Biến điều tiết: đường nét đứt từ M tới giữa mũi tên X → Y (như SmartPLS 4)
+    mods.forEach(([M, X, Y], mi) => {
+      const g = pathGeom(X, Y), m = st.layout[M]; if (!g || !m) return;
+      const mx = (g.x1 + g.x2) / 2, my = (g.y1 + g.y2) / 2;
+      const [sx, sy] = ellipseEdge(m.x, m.y, mx - m.x, my - m.y);
+      const s = isSel('m', mi), col = s ? COL.sel : COL.mod;
+      edges += `<line x1="${sx}" y1="${sy}" x2="${mx}" y2="${my}" stroke="${col}" stroke-width="${s ? 2.4 : 1.6}" stroke-dasharray="5 4"/>` +
+        `<circle cx="${mx}" cy="${my}" r="4.5" fill="${col}"/>`;
+      if (opt.interactive) hits += `<line data-m="${mi}" class="cv-hit" x1="${sx}" y1="${sy}" x2="${mx}" y2="${my}" stroke="transparent" stroke-width="14"/>`;
+      const sres = res && resOf[Y] && res.structural[resOf[Y].j];
+      const it = sres && sres.interactions && sres.interactions.find(q => q.key === `${M} x ${X} → ${Y}`);
+      if (it) {
+        const pv = opt.pvals ? opt.pvals[it.key] : undefined;
+        labels += label(sx + (mx - sx) * 0.45, sy + (my - sy) * 0.45, fmt(it.beta) + (pv !== undefined ? ` (${fmt(pv)})` : ''), COL.mod, true);
+      }
+    });
     blocks.forEach(b => {
       const L = st.layout[b.name], s = isSel('c', b.name);
       const name = b.name.length > 12 ? b.name.slice(0, 11) + '…' : b.name;
@@ -260,6 +302,7 @@
     Object.keys(st.layout).forEach(n => { if (!model.blocks.some(b => b.name === n)) delete st.layout[n]; });
     if (st.sel && st.sel.t === 'c' && !st.layout[st.sel.id]) st.sel = null;
     if (st.sel && st.sel.t === 'p' && !model.paths[st.sel.id]) st.sel = null;
+    if (st.sel && st.sel.t === 'm' && !model.mods[st.sel.id]) st.sel = null;
     if (st.sel && st.sel.t === 'i' && !model.blocks.some(b => b.items.includes(st.sel.id))) st.sel = null;
     const res = st.showRes ? H.getResult() : null;
     const wrap = $('canvas');
@@ -293,6 +336,9 @@
     } else if (s && s.t === 'p') {
       const p = model.paths[s.id];
       h = `<span class="cv-selname">Quan hệ <b>${esc(p[0])} → ${esc(p[1])}</b></span><button class="btn sm" data-cv="flip">Đảo chiều</button><button class="btn sm danger" data-cv="del">Xóa mũi tên</button>`;
+    } else if (s && s.t === 'm') {
+      const m = model.mods[s.id];
+      h = `<span class="cv-selname">Điều tiết: <b>${esc(m[0])}</b> lên quan hệ <b>${esc(m[1])} → ${esc(m[2])}</b></span><button class="btn sm danger" data-cv="del">Xóa hiệu ứng điều tiết</button>`;
     }
     ctx.innerHTML = h;
     ctx.classList.toggle('hidden', !h);
@@ -378,7 +424,8 @@
 
   function deleteSel() {
     const s = st.sel; if (!s) return;
-    let { blocks, paths } = read();
+    let { blocks, paths, mods } = read();
+    if (s.t === 'm') { st.sel = null; write(blocks, paths, mods.filter((_, i) => i !== s.id)); return; }
     if (s.t === 'c') {
       blocks = blocks.filter(b => b.name !== s.id);
       paths = paths.filter(([f, t]) => f !== s.id && t !== s.id);
@@ -410,14 +457,14 @@
     const old = inp.dataset.old;
     let nn = inp.value.trim().replace(/[\s,;:#>-]+/g, '_');
     if (!nn || nn === old) return;
-    let { blocks, paths } = read();
+    let { blocks, paths, mods } = read();
     if (blocks.some(b => b.name === nn)) { H.toast(`Đã có thang đo tên ${nn}`, true); return; }
     if (H.headers().includes(nn)) { H.toast(`${nn} đang là tên một biến trong file, hãy chọn tên khác`, true); return; }
     blocks.forEach(b => { if (b.name === old) b.name = nn; });
     paths = paths.map(([f, t]) => [f === old ? nn : f, t === old ? nn : t]);
     st.layout[nn] = st.layout[old]; delete st.layout[old];
     st.sel = { t: 'c', id: nn };
-    write(blocks, paths);
+    write(blocks, paths, mods.map(m => m.map(x => (x === old ? nn : x))));
   }
 
   // Lưu bố cục theo file (để mở lại vẫn giữ)
@@ -458,9 +505,9 @@
       const svg = wrap.querySelector('svg'); if (!svg) return;
       const p = svgPoint(e);
       const { blocks } = read();
-      const cg = e.target.closest('.cv-lv'), ig = e.target.closest('.cv-item'), ph = e.target.closest('[data-p]');
+      const cg = e.target.closest('.cv-lv'), ig = e.target.closest('.cv-item'), ph = e.target.closest('[data-p]'), mh = e.target.closest('[data-m]');
       // Bấm đúp (tự nhận diện vì sơ đồ được vẽ lại sau mỗi lần bấm)
-      const now = Date.now(), key = cg ? 'c:' + cg.dataset.c : (!ig && !ph ? 'bg' : 'x');
+      const now = Date.now(), key = cg ? 'c:' + cg.dataset.c : (!ig && !ph && !mh ? 'bg' : 'x');
       const dbl = st.lastDown && st.lastDown.key === key && now - st.lastDown.t < 400 && Math.hypot(e.clientX - st.lastDown.x, e.clientY - st.lastDown.y) < 6;
       st.lastDown = { key, t: now, x: e.clientX, y: e.clientY };
       if (dbl && st.tool === 'select') {
@@ -481,6 +528,7 @@
         return;
       }
       if (ig) { st.sel = { t: 'i', id: ig.dataset.i, c: ig.dataset.c }; render(); return; }
+      if (mh) { st.sel = { t: 'm', id: +mh.dataset.m }; render(); return; }
       if (ph) { st.sel = { t: 'p', id: +ph.dataset.p }; render(); return; }
       st.sel = null; render();
       void blocks;
@@ -504,9 +552,23 @@
       const d = st.drag; st.drag = null;
       if (d.kind === 'link') {
         const p = svgPoint(e);
-        const { blocks, paths } = read();
+        const { blocks, paths, mods } = read();
         const to = hitConstruct(p, blocks);
-        if (to && to !== d.from) {
+        const pi = to ? -1 : hitPath(p, paths, 12);
+        if (pi >= 0) {
+          // Thả lên một mũi tên: d.from điều tiết quan hệ đó (SmartPLS 4 tự thêm quan hệ M → Y)
+          const [X, Y] = paths[pi], M = d.from;
+          const extra = paths.some(([f, t]) => f === M && t === Y) ? [] : [[M, Y]];
+          if (M === X || M === Y) H.toast('Biến điều tiết phải khác hai thang đo của quan hệ đó.', true);
+          else if (mods.some(m => m[0] === M && m[1] === X && m[2] === Y)) H.toast('Hiệu ứng điều tiết này đã có');
+          else if (paths.some(([f, t]) => f === Y && t === M) || hasCycle([...paths, ...extra])) H.toast(`Không thêm được: cần quan hệ ${M} → ${Y}, nhưng quan hệ đó tạo vòng lặp.`, true);
+          else {
+            const np = [...paths, ...extra], nm = [...mods, [M, X, Y]];
+            st.sel = { t: 'm', id: nm.length - 1 };
+            write(blocks, np, nm);
+            H.toast(`${M} điều tiết quan hệ ${X} → ${Y}` + (extra.length ? `; đã tự thêm quan hệ ${M} → ${Y}` : ''));
+          }
+        } else if (to && to !== d.from) {
           if (paths.some(([f, t]) => f === d.from && t === to)) H.toast('Quan hệ này đã có');
           else if (paths.some(([f, t]) => f === to && t === d.from)) H.toast('Đã có quan hệ ngược chiều; chọn mũi tên đó rồi bấm “Đảo chiều” nếu cần', true);
           else if (hasCycle([...paths, [d.from, to]])) H.toast('Quan hệ này tạo vòng lặp. Mô hình PLS cần đi một chiều.', true);
@@ -611,7 +673,7 @@
 
   // Hình tĩnh (cho Tổng quan và xuất PNG) theo đúng bố cục người dùng đã sắp
   function staticSVG(res, fmt, pvals) {
-    const model = { blocks: res.blocks.map(b => ({ name: b.name, items: b.items.slice() })), paths: res.paths };
+    const model = { blocks: res.blocks.map(b => ({ name: b.name, items: b.items.slice() })), paths: res.paths, mods: res.mods || [] };
     autoLayout(model.blocks, model.paths, false);
     return svgString({ model, res, fmt, pvals });
   }

@@ -34,6 +34,7 @@
   // ---------- PLS tính trên ma trận tương quan (nhanh, dùng cho từng mẫu bootstrap) ----------
   // Với dữ liệu chuẩn hóa, mọi kết quả PLS (Mode A) chỉ phụ thuộc vào ma trận tương quan R của biến quan sát.
   function plsCorr(R, blocks, paths, opts) {
+    paths = S.effectivePaths(paths, opts.mods);      // giai đoạn 1 của two-stage: mô hình hiệu ứng chính
     const J = blocks.length, maxIter = opts.maxIter || 3000, tol = opts.tol || 1e-7;
     let p = 0; const pos = blocks.map(b => b.items.map(() => p++));
     const idx = Object.fromEntries(blocks.map((b, i) => [b.name, i]));
@@ -96,8 +97,31 @@
     return { blocks, weights: W, loadings, structural, htmt, converged, iterations: it };
   }
 
+  // Giai đoạn 2 của two-stage trên một mẫu con: Z = các cột biến quan sát của mẫu (chuẩn hóa, độ dài 1),
+  // dựng điểm thang đo từ weights rồi hồi quy lại các biến phụ thuộc có tương tác (giống stats.js).
+  function applyMods(res, Z, blocks, mods) {
+    if (!mods || !mods.length) return res;
+    const idx = Object.fromEntries(blocks.map((b, i) => [b.name, i]));
+    const n = Z[0].length, sc = Math.sqrt(n - 1), Y = {};
+    let p = 0; const pos = blocks.map(b => b.items.map(() => p++));
+    const score = j => {
+      if (!Y[j]) { const y = new Float64Array(n); pos[j].forEach((c, k) => { const w = res.weights[j][k] * sc, z = Z[c]; for (let i = 0; i < n; i++) y[i] += w * z[i]; }); Y[j] = y; }
+      return Y[j];
+    };
+    res.structural.forEach((s, j) => {
+      if (!s) return;
+      const ms = mods.filter(m => idx[m[2]] === j); if (!ms.length) return;
+      const P = s.predictors.map(score);
+      const prods = ms.map(([M, X]) => { const a = score(idx[M]), b = score(idx[X]), v = new Float64Array(n); for (let i = 0; i < n; i++) v[i] = a[i] * b[i]; return v; });
+      const fit = S.modRegression(score(j), P, prods, false), k = P.length;
+      s.beta = fit.beta.slice(0, k); s.r2 = fit.r2;
+      s.interactions = ms.map(([M, X, Yn], q) => ({ mod: idx[M], from: idx[X], key: S.modKey(M, X, Yn), beta: fit.beta[k + q] }));
+    });
+    return res;
+  }
+
   // Ma trận tương quan của mẫu bootstrap (cột đã chọn theo chỉ số pick)
-  function corOfSample(cols, pick) {
+  function corOfSample(cols, pick, keepZ) {
     const k = cols.length, n = pick.length, Z = [];
     for (let a = 0; a < k; a++) {
       const src = cols[a], v = new Float64Array(n); let m = 0;
@@ -113,7 +137,7 @@
       const x = Z[a], y = Z[b]; let s = 0; for (let i = 0; i < n; i++) s += x[i] * y[i];
       R[a][b] = s; R[b][a] = s;
     }
-    return R;
+    return keepZ ? { R, Z } : R;
   }
 
   // Ma trận tương quan khi bỏ dòng i (jackknife), tính nhanh từ tổng và tổng tích của toàn bộ dữ liệu
@@ -185,6 +209,8 @@
       out.weights[`${it} → ${b.name}`] = res.weights[j][k];
     }));
     res.structural.forEach((s, j) => { if (s) out.r2[B[j].name] = s.r2; });
+    // Số hạng tương tác (biến điều tiết): thêm vào nhóm hệ số đường dẫn, không tham gia tác động gián tiếp
+    res.structural.forEach(s => { if (s && s.interactions) s.interactions.forEach(it => { out.paths[it.key] = it.beta; }); });
     // HTMT: bỏ các cặp không tính được (NaN)
     for (let i = 0; i < B.length; i++) for (let j = 0; j < i; j++)
       if (Number.isFinite(res.htmt[i][j])) out.htmt[`${B[i].name} ↔ ${B[j].name}`] = res.htmt[i][j];
@@ -200,7 +226,11 @@
     if (sign.every(s => s === 1)) return res;
     res.loadings = res.loadings.map((L, j) => L.map(v => v * sign[j]));
     res.weights = res.weights.map((W, j) => W.map(v => v * sign[j]));
-    res.structural.forEach((s, j) => { if (s) s.beta = s.beta.map((b, k) => b * sign[j] * sign[s.predictors[k]]); });
+    res.structural.forEach((s, j) => {
+      if (!s) return;
+      s.beta = s.beta.map((b, k) => b * sign[j] * sign[s.predictors[k]]);
+      if (s.interactions) s.interactions.forEach(it => { it.beta *= sign[j] * sign[it.mod] * sign[it.from]; });
+    });
     return res;
   }
 
@@ -381,6 +411,14 @@
     // Mặc định SmartPLS: không đổi dấu. Dùng chung cho mẫu bootstrap và jackknife.
     const align = opts.signChange === 'construct' ? r => fixSigns(r, ctx.original) : r => r;
     const cols = items.map(it => ctx.data[it]);
+    const mods = (ctx.plsOpts && ctx.plsOpts.mods) || [];
+    // Một lần ước lượng trên các dòng pick (có giai đoạn 2 nếu mô hình có biến điều tiết)
+    const fitPick = pick => {
+      const rz = corOfSample(cols, pick, true);
+      if (!rz) return null;
+      const res = plsCorr(rz.R, ctx.blocks, ctx.paths, ctx.plsOpts);
+      return res.converged ? applyMods(res, rz.Z, ctx.blocks, mods) : res;
+    };
     const samples = [], counts = [];
     let failed = 0, notConverged = 0;
     const B = opts.samples, chunk = 25;
@@ -390,9 +428,8 @@
         const pick = new Array(n), cnt = new Uint8Array(n);
         for (let i = 0; i < n; i++) { const r = Math.floor(rand() * n); pick[i] = r; if (cnt[r] < 255) cnt[r]++; }
         try {
-          const R = corOfSample(cols, pick);
-          if (!R) { failed++; continue; }          // mẫu có biến hằng (phương sai 0)
-          const res = plsCorr(R, ctx.blocks, ctx.paths, ctx.plsOpts);
+          const res = mods.length ? fitPick(pick) : (R => R && plsCorr(R, ctx.blocks, ctx.paths, ctx.plsOpts))(corOfSample(cols, pick));
+          if (!res) { failed++; continue; }        // mẫu có biến hằng (phương sai 0)
           if (!res.converged) { notConverged++; continue; }
           samples.push(extract(align(res), routes)); counts.push(cnt);
         } catch (e) { failed++; }
@@ -407,9 +444,10 @@
     for (let r = 0; r < n; r += 50) {
       for (let i = r; i < Math.min(n, r + 50); i++) {
         try {
-          const R = corLeaveOut(cols, pre, i);
-          if (!R) continue;
-          const res = plsCorr(R, ctx.blocks, ctx.paths, ctx.plsOpts);
+          let res;
+          if (mods.length) { const pick = []; for (let q = 0; q < n; q++) if (q !== i) pick.push(q); res = fitPick(pick); }
+          else { const R = corLeaveOut(cols, pre, i); res = R && plsCorr(R, ctx.blocks, ctx.paths, ctx.plsOpts); }
+          if (!res) continue;
           if (res.converged) jackByRow[i] = extract(align(res), routes);
         } catch (e) { /* bỏ qua dòng này */ }
       }
@@ -428,7 +466,7 @@
     };
   }
 
-  const api = { run, influence, indirectRoutes, summarize, rng, plsCorr, corOfSample, corLeaveOut, looPrep, extract, fixSigns };
+  const api = { run, influence, applyMods, indirectRoutes, summarize, rng, plsCorr, corOfSample, corLeaveOut, looPrep, extract, fixSigns };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else (global.PTSL = global.PTSL || {}).bootstrap = api;
 })(typeof window !== 'undefined' ? window : globalThis);

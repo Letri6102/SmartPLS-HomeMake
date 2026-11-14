@@ -114,3 +114,42 @@ test('HTMT bootstrap bounds follow the general test options',()=>{
   near(two.lo,.025);near(two.hi,.975);near(one.lo,.05);near(one.hi,.95);
   assert.equal(two.h95,undefined);
 });
+
+test('moderation (two-stage): matches a hand-built stage-2 regression; both engines agree; measurement model unchanged',async()=>{
+  const f=fixture('du_lieu_mau.csv'); const mods=[['CL','TC','HL']];
+  const base=S.plsAlgorithm(f.data,f.blocks,f.paths,{scheme:'path'});
+  const a=S.plsAlgorithm(f.data,f.blocks,f.paths,{scheme:'path',mods});
+  // Giai đoạn 1 = mô hình hiệu ứng chính: weights, loadings, điểm không đổi
+  a.weights.forEach((w,j)=>w.forEach((v,k)=>near(v,base.weights[j][k])));
+  const ix=n=>f.blocks.findIndex(b=>b.name===n), Y=a.scores, n=a.n;
+  const j=ix('HL'), s=a.structural[j], it=s.interactions[0];
+  assert.equal(it.key,'CL x TC → HL');
+  // Hồi quy tay: HL ~ 1 + TC + CL + TC·CL bằng phương trình chuẩn
+  const cols=[...s.predictors.map(p=>Y[p]), Y[ix('CL')].map((v,i)=>v*Y[ix('TC')][i])], y=Y[j];
+  const Xd=y.map((_,i)=>[1,...cols.map(c=>c[i])]), k=Xd[0].length;
+  const XtX=Array.from({length:k},(_,r)=>Array.from({length:k},(_,c)=>Xd.reduce((t,row)=>t+row[r]*row[c],0)));
+  const Xty=Array.from({length:k},(_,r)=>Xd.reduce((t,row,i)=>t+row[r]*y[i],0));
+  const b=S.inverse(XtX).map(row=>row.reduce((t,v,c)=>t+v*Xty[c],0));
+  s.beta.forEach((v,q)=>near(v,b[q+1])); near(it.beta,b[k-1]);
+  const my=S.mean(y); let sse=0,sst=0; Xd.forEach((row,i)=>{const yh=row.reduce((t,v,c)=>t+v*b[c],0);sse+=(y[i]-yh)**2;sst+=(y[i]-my)**2;});
+  near(s.r2,1-sse/sst); assert.ok(s.r2>=base.structural[j].r2-1e-12);
+  near(it.f2,(s.r2-base.structural[j].r2)/(1-s.r2));
+  // Các biến phụ thuộc không có điều tiết giữ nguyên
+  near(a.structural[ix('TT')].beta[0],base.structural[ix('TT')].beta[0]);
+  // Engine ma trận tương quan + applyMods cho cùng kết quả
+  const cols2=f.blocks.flatMap(b=>b.items.map(i=>f.data[i])), pick=Array.from({length:n},(_,i)=>i);
+  const rz=B.corOfSample(cols2,pick,true);
+  const c=B.applyMods(B.plsCorr(rz.R,f.blocks,f.paths,{scheme:'path',mods}),rz.Z,f.blocks,mods);
+  near(c.structural[j].interactions[0].beta,it.beta); near(c.structural[j].r2,s.r2); c.structural[j].beta.forEach((v,q)=>near(v,s.beta[q]));
+  // Bootstrap có hàng cho số hạng tương tác; jackknife đầy đủ
+  const r=await B.run({...f,original:a,plsOpts:{scheme:'path',mods}},{samples:60,seed:1,tails:2,alpha:.05});
+  const row=r.stats.paths.find(x=>x.key==='CL x TC → HL'); assert.ok(row && row.sd>0 && Number.isFinite(row.bcaLo));
+  near(row.O,it.beta,1e-12); assert.equal(r.jackknife,n);
+});
+test('moderation adds the moderator → dependent path automatically',()=>{
+  const f=fixture('du_lieu_mau.csv');
+  const a=S.plsAlgorithm(f.data,f.blocks,[['TC','HL'],['HL','TT']],{scheme:'path',mods:[['CL','TC','HL']]});
+  const j=f.blocks.findIndex(b=>b.name==='HL'), cl=f.blocks.findIndex(b=>b.name==='CL');
+  assert.ok(a.structural[j].predictors.includes(cl));
+  assert.deepEqual(S.effectivePaths([['TC','HL']],[['CL','TC','HL']]),[['TC','HL'],['CL','HL']]);
+});

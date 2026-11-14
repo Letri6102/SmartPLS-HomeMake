@@ -25,6 +25,7 @@
       if (!s) return;
       out.blocks[res.blocks[j].name].r2 = s.r2;
       s.predictors.forEach((p, k) => { out.paths[`${res.blocks[p].name} → ${res.blocks[j].name}`] = s.beta[k]; });
+      (s.interactions || []).forEach(it => { out.paths[it.key] = it.beta; });
     });
     return out;
   }

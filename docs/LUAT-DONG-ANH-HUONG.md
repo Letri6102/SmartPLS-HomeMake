@@ -50,7 +50,7 @@ Ngày 14/11/2026. Phạm vi mã: `src/core/stats.js`, `src/core/distributions.js
 
 ### 1.4 Chưa cài
 
-Mode B (formative), PLSc, WPLS, PCA weighting, kết quả chưa chuẩn hóa, cỡ mẫu tối thiểu, model fit (SRMR, d_ULS, d_G, NFI, Chi²), khoảng studentized, permutation, MICOM, MGA, PLSpredict, CVPAT, model comparison (BIC), FIMIX, IPMA, moderation.
+Mode B (formative), PLSc, WPLS, PCA weighting, kết quả chưa chuẩn hóa, cỡ mẫu tối thiểu, model fit (SRMR, d_ULS, d_G, NFI, Chi²), khoảng studentized, permutation, MICOM, MGA, PLSpredict, CVPAT, model comparison (BIC), FIMIX, IPMA, tương tác ba chiều. (Biến điều tiết hai chiều đã được cài ngày 14/11/2026, xem `SMARTPLS-FORMULAS.md` mục 6.1.)
 
 ---
 

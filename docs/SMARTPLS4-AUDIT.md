@@ -17,7 +17,9 @@ Phạm vi: PLS-SEM chuẩn, dữ liệu chuẩn hóa, reflective Mode A. Đây l
 | Không có đường dẫn | Ứng dụng tự dùng Factor trên toàn bộ các cặp construct: đây là quy ước riêng, không coi là cùng mô hình với SmartPLS. |
 | Dữ liệu thiếu | Hỗ trợ thay bằng trung bình hoặc loại theo dòng, cần chọn giống nhau khi đối chiếu. |
 
-Không hỗ trợ: Mode B, PLSc, PCA weighting, kết quả chưa chuẩn hóa, biến điều tiết, mô hình bậc cao, MGA, PLSpredict và các chức năng SmartPLS ngoài phạm vi này.
+Biến điều tiết (thêm 14/11/2026): two-stage như SmartPLS 4, khai báo `M * X -> Y` hoặc kéo thang đo thả lên mũi tên; chưa có tương tác ba chiều, simple slope chỉ ở dạng bảng. Chưa đối chiếu số với SmartPLS.
+
+Không hỗ trợ: Mode B, PLSc, PCA weighting, kết quả chưa chuẩn hóa, tương tác ba chiều, mô hình bậc cao, MGA, PLSpredict và các chức năng SmartPLS ngoài phạm vi này.
 
 ## Nguồn chính thức
 

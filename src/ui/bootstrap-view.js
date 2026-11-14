@@ -162,7 +162,7 @@
   // ---------- Giao diện ----------
   // Danh sách quan hệ trong mô hình hiện tại (để chọn hướng giả thuyết khi kiểm định một phía)
   function currentPathKeys() {
-    try { const m = P.readModel(); return m.paths.map(([f, t]) => `${f} → ${t}`); } catch (e) { return []; }
+    try { const m = P.readModel(); return m.paths.map(([f, t]) => `${f} → ${t}`).concat(m.mods.map(m3 => P.stats.modKey(...m3))); } catch (e) { return []; }
   }
 
   function opts() {

@@ -50,7 +50,7 @@
   // Khung vẽ mô hình
   P.canvas.init({
     parseModel: () => P.parseModel($('model').value, true),
-    getPaths: () => $('paths').value,
+    getPaths: () => $('paths').value, splitPathLine: P.splitPathLine,
     setModel: v => { $('model').value = v; },
     setPaths: v => { $('paths').value = v; },
     onChange: () => { P.updateModelPreview(); if (state.rows.length) P.renderMeasureBar(); },

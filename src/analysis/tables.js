@@ -124,7 +124,8 @@
 
     // Mô hình cấu trúc
     if (r.paths.length) {
-      const pathRows = [], r2Rows = [], vifRows = [];
+      const pathRows = [], r2Rows = [], vifRows = [], slopeRows = [];
+      const hasMods = r.structural.some(s => s && s.interactions);
       r.structural.forEach((s, j) => {
         if (!s) return;
         r2Rows.push([C(names[j]), C(s.r2), C(s.r2adj)]);
@@ -134,9 +135,23 @@
             C(f >= 0.35 ? 'Lớn' : f >= 0.15 ? 'Trung bình' : f >= 0.02 ? 'Nhỏ' : 'Không đáng kể')]);
           vifRows.push([C(`${names[p]} → ${names[j]}`), C(s.vif[k], A.vif(s.vif[k]))]);
         });
+        // Số hạng tương tác (biến điều tiết); ngưỡng f² riêng theo Kenny (2018): 0,005 / 0,01 / 0,025
+        (s.interactions || []).forEach(it => {
+          const f = it.f2;
+          pathRows.push([C(it.key), C(it.beta), C(f, f >= 0.005 ? 'good' : 'warn'),
+            C((f >= 0.025 ? 'Lớn' : f >= 0.01 ? 'Trung bình' : f >= 0.005 ? 'Nhỏ' : 'Không đáng kể') + ' (thang của tương tác)')]);
+          vifRows.push([C(it.key), C(it.vif, A.vif(it.vif))]);
+          const b1 = s.beta[s.predictors.indexOf(it.from)];
+          slopeRows.push([C(`${names[it.from]} → ${names[j]}`), C(names[it.mod]), C(b1 - it.beta), C(b1), C(b1 + it.beta),
+            C(it.beta > 0 ? `${names[it.mod]} càng cao, quan hệ càng mạnh lên` : `${names[it.mod]} càng cao, quan hệ càng yếu đi`)]);
+        });
       });
       T.push({ key: 'struct', title: 'Mô hình cấu trúc', sections: [
-        { title: 'Hệ số đường dẫn và f²', head: ['Quan hệ', 'Hệ số β', 'f²', 'Mức tác động'], rows: pathRows },
+        { title: 'Hệ số đường dẫn và f²', head: ['Quan hệ', 'Hệ số β', 'f²', 'Mức tác động'], rows: pathRows,
+          note: hasMods ? 'Dòng “M x X → Y” là số hạng tương tác của biến điều tiết M lên quan hệ X → Y, ước lượng theo cách hai giai đoạn (two-stage) như SmartPLS 4: giai đoạn 1 chạy mô hình hiệu ứng chính để lấy điểm thang đo; giai đoạn 2 hồi quy Y theo các thang đo dự báo và tích điểm M·X (tích không được chuẩn hóa lại). Outer loading, độ tin cậy, HTMT lấy từ giai đoạn 1. Khi có tương tác, hệ số của X → Y là tác động của X tại mức trung bình của M. Mức tác động f² của tương tác dùng ngưỡng 0,005 / 0,01 / 0,025 (Kenny, 2018).' : undefined },
+        ...(slopeRows.length ? [{ title: 'Simple slope: quan hệ theo mức của biến điều tiết',
+          head: ['Quan hệ', 'Biến điều tiết', 'Hệ số tại −1 SD', 'Hệ số tại trung bình', 'Hệ số tại +1 SD', 'Diễn giải'], rows: slopeRows,
+          note: 'Hệ số của X → Y khi biến điều tiết ở mức m độ lệch chuẩn = β(X → Y) + m × β(tương tác). Ý nghĩa thống kê của tương tác: xem dòng “M x X → Y” trong Bootstrapping.' }] : []),
         { title: 'R²', head: ['Biến phụ thuộc', 'R²', 'R² hiệu chỉnh'], rows: r2Rows },
         { title: 'VIF giữa các thang đo (inner)', head: ['Quan hệ', 'VIF'], rows: vifRows,
           note: 'Giá trị t, p-value và khoảng tin cậy của β: bấm nút “Bootstrapping”.' }
