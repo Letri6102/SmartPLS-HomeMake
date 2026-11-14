@@ -58,7 +58,7 @@
       if (t.key === 'boot') {
         // Bootstrapping: mỗi nhóm kết quả một sheet
         const titles = { paths: 'Hệ số đường dẫn', ci: 'Khoảng tin cậy', indirect: 'Tác động gián tiếp', total: 'Tổng tác động',
-          loadings: 'Outer loading', weights: 'Outer weight', r2: 'R²', htmt: 'HTMT' };
+          loadings: 'Outer loading', weights: 'Outer weight', r2: 'R²', htmt: 'HTMT', rows: 'Ảnh hưởng theo dòng' };
         Object.entries(t.views).forEach(([k, secs]) => {
           if (secs.some(s => s.rows && s.rows.length)) sheets.push(sheetFrom(`Bootstrap - ${titles[k]}`, `Bootstrapping: ${titles[k]}`, secs));
         });

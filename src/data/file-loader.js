@@ -94,10 +94,12 @@
     let raw = items.map(it => idx.map(i => toNumber(state.rows[i][colIdx[it]])));
     const n0 = idx.length;
     let nMissing = 0; raw.forEach(c => c.forEach(v => { if (!Number.isFinite(v)) nMissing++; }));
+    let rowIds = idx;                       // chỉ số dòng gốc (state.rows) của từng quan sát trong data
     if (missing === 'listwise') {
       const keep = [];
       for (let i = 0; i < n0; i++) if (raw.every(c => Number.isFinite(c[i]))) keep.push(i);
       raw = raw.map(c => keep.map(i => c[i]));
+      rowIds = keep.map(i => idx[i]);
     } else {
       raw = raw.map(c => {
         const v = c.filter(Number.isFinite), m = v.length ? P.stats.mean(v) : 0;
@@ -106,7 +108,7 @@
     }
     const data = {};
     items.forEach((it, k) => { data[it] = raw[k]; });
-    return { data, n: raw[0].length, n0, nMissing };
+    return { data, n: raw[0].length, n0, nMissing, rowIds };
   };
 
   // Cột mã phiếu (STT / ID…) nếu có

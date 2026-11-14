@@ -21,7 +21,8 @@
     { key: 'loadings', label: 'Outer loading' },
     { key: 'weights', label: 'Outer weight' },
     { key: 'r2', label: 'R²' },
-    { key: 'htmt', label: 'HTMT' }
+    { key: 'htmt', label: 'HTMT' },
+    { key: 'rows', label: 'Ảnh hưởng theo dòng' }
   ];
 
   // Giá trị p của từng quan hệ (để hiện trên sơ đồ)
@@ -70,6 +71,45 @@
     };
   }
 
+  // Dòng Excel (dòng 1 là tiêu đề) của quan sát thứ i trong dữ liệu đã chạy bootstrap
+  const excelRow = (res, i) => (res.rowIds ? res.rowIds[i] + 2 : i + 1);
+  const keyName = id => id.slice(id.indexOf('|') + 1);
+  const pctTxt = x => (Number.isFinite(x) ? (x * 100).toFixed(1).replace('.', ',') + '%' : '');
+
+  // Ảnh hưởng của từng dòng dữ liệu lên kiểm định (jackknife + các mẫu bootstrap không chứa dòng đó)
+  function influenceSections(res) {
+    const inf = res.influence;
+    if (!inf) return [{ title: 'Ảnh hưởng theo dòng', empty: 'Chưa có dữ liệu ảnh hưởng theo dòng. Hãy chạy lại Bootstrapping.', head: [], rows: [] }];
+    const showId = res.rowIds && state.headers.some(x => P.ID_RE.test(x.trim()));
+    const id = i => (showId ? [C(P.rowLabel(res.rowIds[i]))] : []);
+    const verdict = e => (e.sig ? 'Có ý nghĩa' : 'Không có ý nghĩa');
+    const robust = {
+      title: 'Độ vững của từng quan hệ khi bỏ riêng một dòng', empty: 'Mô hình không có quan hệ nào.',
+      head: ['Quan hệ', 'Original sample (O)', 'T statistics', 'P values', 'Kết luận', 'Số dòng làm đổi kết luận', 'Dòng ảnh hưởng nhất (dòng Excel)', 'Phần phương sai do dòng đó'],
+      rows: inf.keys.map(k => [C(k.key), C(k.O), C(k.t), { v: k.p, p: true }, C(k.sig ? 'Có ý nghĩa' : 'Không có ý nghĩa', k.sig ? 'good' : 'bad'),
+        C(k.flips, k.flips ? 'warn' : 'good'), C(k.top === null ? '' : String(excelRow(res, k.top))), C(pctTxt(k.topShare))]),
+      note: `“Số dòng làm đổi kết luận” đếm những dòng mà chỉ cần bỏ riêng dòng đó thì p vượt qua mức ${res.opts.alpha}. Bằng 0 nghĩa là kết luận không phụ thuộc vào bất kỳ một phiếu đơn lẻ nào. ` +
+        `Với ${inf.n} dòng, mỗi dòng trung bình chỉ tạo ra ${pctTxt(1 / inf.n)} phương sai của hệ số.`
+    };
+    const pairs = [];
+    inf.rows.forEach(r => Object.entries(r.effects).forEach(([k, e]) => { if (e.flip || e.share >= inf.cut) pairs.push({ i: r.i, k, e }); }));
+    pairs.sort((a, b) => (b.e.flip - a.e.flip) || (b.e.share - a.e.share));
+    const shown = pairs.slice(0, 60);
+    const detail = {
+      title: 'Các dòng ảnh hưởng nhiều nhất đến kiểm định', empty: 'Không có dòng nào ảnh hưởng vượt ngưỡng.',
+      head: ['Dòng Excel', ...(showId ? ['Mã'] : []), 'Quan hệ', 'Hệ số nếu bỏ dòng', 'Thay đổi hệ số', 'T nếu bỏ dòng', 'P nếu bỏ dòng', 'Phần phương sai do dòng này', 'Chiều kéo hệ số', 'Có mặt ở đuôi bất lợi (kỳ vọng 1)', 'Kết luận nếu bỏ dòng'],
+      rows: shown.map(({ i, k, e }) => [C(String(excelRow(res, i))), ...id(i), C(keyName(k)), C(e.est), C(e.d), C(e.t), { v: e.p, p: true },
+        C(pctTxt(e.share)), C(!Number.isFinite(e.corr) ? '' : e.corr > 0 ? 'Kéo lên' : 'Kéo xuống'), C(e.tail),
+        C(verdict(e) + (e.flip ? ' (đổi kết luận)' : ''), e.flip ? 'warn' : '')]),
+      note: `Liệt kê cặp (dòng, quan hệ) mà bỏ dòng thì đổi kết luận, hoặc dòng tạo ra từ ${pctTxt(inf.cut)} phương sai trở lên (tương đương thay đổi hệ số vượt 3/√n sai số chuẩn)` +
+        `${pairs.length > shown.length ? `; hiển thị ${shown.length}/${pairs.length} cặp mạnh nhất` : ''}. ` +
+        `“Hệ số nếu bỏ dòng” lấy từ jackknife. “T” và “P nếu bỏ dòng” dùng độ lệch chuẩn của những mẫu bootstrap không chứa dòng đó (khoảng 36,8% số mẫu, nên dao động nhiều hơn kết quả chính; với dưới 5.000 mẫu chỉ nên coi là gợi ý). ` +
+        `“Đuôi bất lợi” là ${pct(inf.keys[0] ? (res.opts.tails === 1 ? res.opts.alpha : res.opts.alpha / 2) : 0.025)} số mẫu có hệ số gần hoặc vượt qua 0 nhất; dòng có mặt ở đó nhiều hơn 1 là dòng kéo khoảng tin cậy về phía 0. ` +
+        `<b>Bảng này chỉ để biết cần xem lại phiếu nào.</b> Không loại phiếu chỉ vì nó làm đổi kết luận: khi đó p-value không còn đúng nghĩa. Chỉ loại khi phiếu vi phạm tiêu chí chất lượng ở mục “Dòng đáng ngờ”, và báo cáo kết quả trước và sau.`
+    };
+    return [robust, detail];
+  }
+
   P.bootTables = function (res) {
     const s = res.stats, al = res.opts.alpha, one = res.opts.tails === 1;
     const test = `${one ? 'Kiểm định một phía có hướng (theo cột Giả thuyết)' : 'Kiểm định hai phía'}, mức ý nghĩa ${al}, ${res.done} mẫu bootstrap.`;
@@ -95,7 +135,7 @@
       weights: [meanTable(s.weights, 'Outer weight: Mean, STDEV, T values, p values', 'Biến → Thang đo', al)],
       r2: [meanTable(s.r2, 'R²: Mean, STDEV, T values, p values', 'Biến phụ thuộc', al)],
       htmt: [{
-        title: 'HTMT: khoảng tin cậy một phía 95%', empty: 'Không có cặp thang đo nào tính được HTMT (cần mỗi thang đo có ít nhất 2 biến).',
+        title: 'HTMT: khoảng tin cậy một phía 95%', empty: 'Không có cặp thang đo nào tính được HTMT.',
         head: ['Cặp thang đo', 'Original sample (O)', 'Sample mean (M)', 'Cận trên 95% (percentile)', 'Cận trên 95% (BCa)', 'Kết luận'],
         rows: s.htmt.map(x => {
           const cls = x.h95 < 0.85 ? 'good' : x.h95 < 0.9 ? 'warn' : 'bad';
@@ -104,8 +144,9 @@
         }),
         note: 'Kiểm định HTMT luôn là một phía, α = 0,05 (cận trên = phân vị 95% của phân phối bootstrap), không phụ thuộc tùy chọn kiểm định ở trên, giống hướng dẫn SmartPLS. ' +
           'Giá trị phân biệt đạt khi cận trên nhỏ hơn 0,85 (hoặc 0,90 với hai khái niệm gần nhau) (Henseler và cộng sự, 2015). Kết luận dựa trên cận trên percentile; cột BCa để tham khảo. ' +
-          'Thang đo một biến không có HTMT nên không xuất hiện ở đây.'
-      }]
+          'Với thang đo một biến, tương quan nội bộ trung bình lấy bằng 1, như SmartPLS.'
+      }],
+      rows: influenceSections(res)
     };
     const all = VIEWS.flatMap(v => views[v.key].map(sec => Object.assign(sec, { view: v.key })));
     return { key: 'boot', title: 'Bootstrapping', sections: all, views };
@@ -192,7 +233,7 @@
     if (state.activeTab === 'boot') P.showTab('boot'); else P.renderMeasureBar();
     try {
       const result = await P.bootstrap.run(
-        { data: r.prepared.data, blocks: r.blocks, paths: r.paths, plsOpts: r.plsOpts, original: r }, o,
+        { data: r.prepared.data, blocks: r.blocks, paths: r.paths, plsOpts: r.plsOpts, original: r, rowIds: r.prepared.rowIds }, o,
         (d, n, ms, phase) => {
           const b = $('bootBar'), t = $('bootTxt');
           if (b) b.style.width = (100 * d / n) + '%';

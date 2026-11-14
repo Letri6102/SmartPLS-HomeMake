@@ -65,6 +65,24 @@
     if (state.activeTab === 'rows') P.showTab('rows'); else P.renderMeasureBar();
   };
 
+  // Ảnh hưởng lên kiểm định bootstrap của từng dòng (nếu Bootstrapping còn khớp với mô hình): rowId -> mô tả
+  function bootInfluence() {
+    const out = new Map();
+    if (!P.bootFresh || !P.bootFresh()) return out;
+    const res = state.boot.result, inf = res.influence;
+    if (!inf || !res.rowIds) return out;
+    const name = id => id.slice(id.indexOf('|') + 1);
+    inf.rows.forEach(r => {
+      if (!r.influential) return;
+      const lines = [];
+      r.flips.slice(0, 2).forEach(k => { const e = r.effects[k]; lines.push(`${name(k)}: p ${f3(e.p)}, đổi kết luận`); });
+      if (!lines.length && r.maxKey) { const e = r.effects[r.maxKey]; lines.push(`Tạo ra ${(e.share * 100).toFixed(1).replace('.', ',')}% phương sai bootstrap của ${name(r.maxKey)}`); }
+      out.set(res.rowIds[r.i], { flips: r.flips.length, share: r.maxShare, lines,
+        text: r.flips.length ? `Bỏ dòng này thì ${r.flips.length} kiểm định bootstrap đổi kết luận` : 'Ảnh hưởng lớn đến sai số chuẩn bootstrap' });
+    });
+    return out;
+  }
+
   P.renderRows = function () {
     const sc = state.scan;
     if (state.scanning || !sc || sc.sig !== state.sig) {
@@ -73,17 +91,20 @@
     const o = state.scanOptsUsed;
     let h = scanSettings(o);
     h += `<div class="rc-note"><b>Cách dùng đúng:</b> bốn tiêu chí đầu (trả lời một kiểu, không nhất quán trong thang đo, ngoại lai đa biến, thiếu câu) độc lập với kết quả và có thể dùng làm căn cứ loại phiếu nếu bạn đặt tiêu chí trước khi phân tích. ` +
-      `“Ảnh hưởng lớn” chỉ cho biết bỏ dòng đó thì α, CR, AVE thay đổi nhiều; <b>không nên loại dòng chỉ vì lý do này</b>, vì như vậy là chọn dữ liệu theo kết quả. Sau khi loại, hãy báo cáo cả kết quả trước và sau (bảng so sánh bên dưới).</div>`;
+      `“Ảnh hưởng lớn” chỉ cho biết bỏ dòng đó thì α, CR, AVE thay đổi nhiều, hoặc (sau khi chạy Bootstrapping) hệ số, sai số chuẩn hay kết luận kiểm định thay đổi; <b>không nên loại dòng chỉ vì lý do này</b>, vì như vậy là chọn dữ liệu theo kết quả. Sau khi loại, hãy báo cáo cả kết quả trước và sau (bảng so sánh bên dưới).</div>`;
 
     const counts = {}; sc.rows.forEach(r => r.flags.forEach(f => { counts[f.type] = (counts[f.type] || 0) + 1; }));
-    const flagged = sc.rows.filter(r => r.flags.length);
+    const binf = bootInfluence();
+    const flagged = sc.rows.filter(r => r.flags.length || binf.has(r.rowId));
     const hard = flagged.filter(r => r.hard);
     h += `<div class="rc-sum">` + ['straight', 'range', 'maha', 'miss', 'influence'].map(k =>
       `<div class="rc-stat ${k === 'influence' ? 'soft' : ''}"><b>${counts[k] || 0}</b><span>${FLAG_NAME[k]}</span></div>`).join('') +
       `<div class="rc-stat total"><b>${hard.length}</b><span>Dòng vi phạm ít nhất 1 tiêu chí</span></div></div>`;
     if (!sc.mahaOk) h += `<p class="note">Không tính được khoảng cách Mahalanobis vì các biến đa cộng tuyến hoàn hảo.</p>`;
 
-    const list = (state.scanFilter === 'hard' ? hard : flagged).slice().sort((a, b) => b.score - a.score);
+    const bscore = r => { const b = binf.get(r.rowId); return b ? b.flips * 2 + b.share * 20 : 0; };
+    const list = (state.scanFilter === 'hard' ? hard : flagged).slice().sort((a, b) => (b.score + bscore(b)) - (a.score + bscore(a)));
+    if (P.bootFresh && !P.bootFresh()) h += `<p class="note">Chạy Bootstrapping để xem thêm dòng nào ảnh hưởng đến sai số chuẩn và kết luận kiểm định.</p>`;
     h += `<div class="rc-bar"><div class="seg" role="group" aria-label="Lọc">` +
       `<button data-act="filter" data-v="any" class="${state.scanFilter === 'any' ? 'on' : ''}">Mọi dấu hiệu (${flagged.length})</button>` +
       `<button data-act="filter" data-v="hard" class="${state.scanFilter === 'hard' ? 'on' : ''}">Vi phạm tiêu chí (${hard.length})</button></div>` +
@@ -103,8 +124,10 @@
           const wide = ok.length > 1 && P.stats.sd(ok) >= o.incMin;
           return `<span class="ans"><i>${esc(b.name)}</i>${v.map(x => !Number.isFinite(x) ? '<u>·</u>' : `<u class="${wide && (x === lo || x === hi) ? 'ext' : ''}">${x}</u>`).join('')}</span>`;
         }).join('');
-        const flags = r.flags.map(f => `<span class="flag ${f.soft ? 'soft' : ''}" title="${esc(f.text)}">${esc(f.text)}</span>`).join('');
-        const eff = r.effects.slice(0, 2).map(e => `${esc(e.label)} ${e.d >= 0 ? '+' : ''}${f3(e.d)}`).join('<br>') || '<span class="muted">—</span>';
+        const bi = binf.get(r.rowId);
+        const flags = r.flags.map(f => `<span class="flag ${f.soft ? 'soft' : ''}" title="${esc(f.text)}">${esc(f.text)}</span>`).join('') +
+          (bi ? `<span class="flag soft" title="${esc(bi.text)}">${esc(bi.text)}</span>` : '');
+        const eff = r.effects.slice(0, 2).map(e => `${esc(e.label)} ${e.d >= 0 ? '+' : ''}${f3(e.d)}`).concat(bi ? bi.lines.map(esc) : []).join('<br>') || '<span class="muted">—</span>';
         h += `<tr class="${state.selected.has(r.rowId) ? 'sel' : ''}"><td><input type="checkbox" data-act="pick" data-i="${r.rowId}" ${state.selected.has(r.rowId) ? 'checked' : ''} aria-label="Chọn dòng ${r.rowId + 2}"></td>` +
           `<td>${r.rowId + 2}</td>${showId ? `<td>${esc(P.rowLabel(r.rowId))}</td>` : ''}<td class="ans-cell">${ans}</td><td class="flags">${flags}</td><td class="eff">${eff}</td></tr>`;
       }

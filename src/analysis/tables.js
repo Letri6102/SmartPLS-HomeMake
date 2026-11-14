@@ -106,7 +106,7 @@
       T.push({ key: 'disc', title: 'Giá trị phân biệt', sections: [
         { title: 'HTMT', head: ['', ...names], rows: ht,
           note: 'HTMT tính trên trị tuyệt đối của các hệ số tương quan, giống SmartPLS. Xanh: < 0,85. Vàng: 0,85–0,90, chấp nhận khi hai khái niệm gần nhau. Đỏ: ≥ 0,90, không đạt. Khoảng tin cậy của HTMT có ở mục Bootstrapping.' +
-            (singles.length ? ` “—”: thang đo một biến (${esc(singles.join(', '))}) không có tương quan nội bộ nên không tính HTMT.` : '') },
+            (singles.length ? ` Thang đo một biến (${esc(singles.join(', '))}): tương quan nội bộ trung bình lấy bằng 1, như SmartPLS.` : '') },
         { title: 'Fornell-Larcker', head: ['', ...names], rows: fl,
           note: 'Đường chéo là √AVE. Ô đỏ: tương quan ≥ √AVE, vi phạm giá trị phân biệt.' }
       ] });

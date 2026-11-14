@@ -48,7 +48,6 @@
     const flFail = [], htmtVals = [];
     for (let i = 0; i < B.length; i++) for (let j = 0; j < i; j++) {
       const v = r.htmt[i][j];
-      // thang đo một biến không có HTMT (NaN): bỏ qua
       if (Number.isFinite(v)) { htmtVals.push(v); if (!(htmtMax >= v)) { htmtMax = v; htmtPair = `${names[i]}–${names[j]}`; } }
       if (Math.abs(r.fornell[i][j]) >= Math.min(r.fornell[i][i], r.fornell[j][j])) flFail.push(`${names[i]}–${names[j]}`);
     }
@@ -93,7 +92,7 @@
         text: (has ? `HTMT lớn nhất ${f3(a.htmtMax)} (${a.htmtPair}).` : 'Không tính được HTMT.') +
           (up ? ` Cận trên CI 95% lớn nhất ${f3(up.h95)} (${up.key}).` : '') +
           (a.flFail.length ? ` Fornell-Larcker chưa đạt ở ${a.flFail.join(', ')}.` : ' Fornell-Larcker đạt.') +
-          (a.single.length ? ` Thang đo một biến (${a.single.join(', ')}) không có HTMT.` : ''),
+          (a.single.length ? ` Thang đo một biến (${a.single.join(', ')}): HTMT lấy tương quan nội bộ bằng 1.` : ''),
         crit: 'HTMT < 0,85 (hoặc < 0,90) và Fornell-Larcker đạt' });
     }
     if (r.paths.length) {
@@ -153,8 +152,7 @@
         p3 += hhi < 0.85 ? ', đều nhỏ hơn 0,85 (Henseler và cộng sự, 2015)'
           : hhi < 0.9 ? `, đều nhỏ hơn 0,9; riêng cặp ${a.htmtPair} vượt 0,85, chỉ chấp nhận được nếu hai khái niệm này gần nhau về nội dung (Henseler và cộng sự, 2015)`
           : `; cặp ${a.htmtPair} vượt ngưỡng 0,9 (Henseler và cộng sự, 2015)`;
-        if (a.single.length) p3 += ` (thang đo một biến ${a.single.join(', ')} không tính HTMT)`;
-      } else p3 += 'không tính được HTMT vì các thang đo chỉ có một biến';
+      } else p3 += 'không tính được HTMT';
       p3 += fl ? '. Theo tiêu chí Fornell-Larcker, căn bậc hai AVE của mỗi thang đo lớn hơn tương quan với các thang đo khác'
         : `. Theo tiêu chí Fornell-Larcker, cặp ${a.flFail.join(', ')} chưa đạt`;
       if (up) {

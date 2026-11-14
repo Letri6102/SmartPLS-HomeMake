@@ -8,6 +8,8 @@
  *   tổng tác động, outer loading, outer weight, R², HTMT.
  * Mẫu bootstrap mà thuật toán PLS chưa hội tụ bị loại (đếm riêng), không đưa vào thống kê.
  * Kiểm định một phía có hướng: opts.dirs = { "A → B": +1 | -1 } (mặc định +1, giả thuyết dương).
+ * Ảnh hưởng theo dòng (influence): dùng lại jackknife và số lần mỗi dòng xuất hiện trong từng mẫu
+ *   bootstrap để biết dòng nào làm lệch hệ số, làm phình sai số chuẩn, hoặc làm đổi kết luận.
  */
 (function (global) {
   'use strict';
@@ -82,8 +84,8 @@
       const { beta, r2 } = regress(C, j, pred[j]);
       return { predictors: pred[j], beta, r2 };
     });
-    // HTMT trên trị tuyệt đối của từng tương quan; thang đo một biến không có HTMT (NaN) — giống stats.js
-    const mono = pos.map(ids => { if (ids.length < 2) return NaN; let s = 0, m = 0; for (let a = 0; a < ids.length; a++) for (let c = a + 1; c < ids.length; c++) { s += Math.abs(R[ids[a]][ids[c]]); m++; } return s / m; });
+    // HTMT trên trị tuyệt đối của từng tương quan; thang đo một biến: tương quan nội bộ trung bình = 1 — giống stats.js
+    const mono = pos.map(ids => { if (ids.length < 2) return 1; let s = 0, m = 0; for (let a = 0; a < ids.length; a++) for (let c = a + 1; c < ids.length; c++) { s += Math.abs(R[ids[a]][ids[c]]); m++; } return s / m; });
     const htmt = blocks.map((_, i) => blocks.map((_, j) => {
       if (i === j || !(mono[i] > 0) || !(mono[j] > 0)) return NaN;
       let s = 0, m = 0; pos[i].forEach(a => pos[j].forEach(c => { s += Math.abs(R[a][c]); m++; }));
@@ -181,7 +183,7 @@
       out.weights[`${it} → ${b.name}`] = res.weights[j][k];
     }));
     res.structural.forEach((s, j) => { if (s) out.r2[B[j].name] = s.r2; });
-    // HTMT: bỏ các cặp có thang đo một biến (không tính được HTMT)
+    // HTMT: bỏ các cặp không tính được (NaN)
     for (let i = 0; i < B.length; i++) for (let j = 0; j < i; j++)
       if (Number.isFinite(res.htmt[i][j])) out.htmt[`${B[i].name} ↔ ${B[j].name}`] = res.htmt[i][j];
     return out;
@@ -288,6 +290,81 @@
     return out;
   }
 
+  /**
+   * Ảnh hưởng của từng dòng dữ liệu lên kiểm định bootstrap (chỉ để tham khảo, không phải căn cứ loại phiếu).
+   *   counts[b][i]  số lần dòng i xuất hiện trong mẫu bootstrap hợp lệ thứ b
+   *   jackByRow[i]  kết quả extract khi bỏ dòng i (null nếu không tính được)
+   * Với mỗi thống kê θ (nhóm paths, indirect) và mỗi dòng i:
+   *   est     = θ_(i): ước lượng khi bỏ dòng i (jackknife)
+   *   share   = (θ_(i) − θ̄_jack)² / Σ_j (θ_(j) − θ̄_jack)²: phần phương sai jackknife (≈ STDEV² bootstrap) do dòng i tạo ra; kỳ vọng 1/n
+   *   se      = STDEV của các mẫu bootstrap KHÔNG chứa dòng i (≈ 36,8% số mẫu) = sai số chuẩn nếu không có dòng i
+   *   t, p    = tính lại từ est và se; sig / ciSig = kết luận theo p và theo khoảng percentile của các mẫu đó
+   *   corr    = tương quan giữa số lần xuất hiện của dòng i và θ*: dương thì dòng i kéo θ lên
+   *   tail    = số lần xuất hiện trung bình của dòng i trong các mẫu ở đuôi bất lợi (phía 0 so với O); kỳ vọng 1
+   */
+  function influence(orig, samples, counts, jackByRow, stats, opts, groups) {
+    const B = samples.length, n = jackByRow.length;
+    const tails = opts.tails === 1 ? 1 : 2, alpha = opts.alpha, qLo = tails === 2 ? alpha / 2 : alpha;
+    const cut = 9 / n;                         // |Δθ| / se > 3/√n  ⇔  share > 9/n
+    const keys = [];
+    const rows = Array.from({ length: n }, (_, i) => ({ i, maxShare: 0, maxKey: null, flips: [], effects: {} }));
+    for (const group of groups || ['paths', 'indirect']) {
+      for (const st of stats[group] || []) {
+        const key = st.key, O = orig[group][key], dir = st.dir;
+        const jk = jackByRow.map(j => (j ? j[group][key] : NaN));
+        const okJ = jk.filter(Number.isFinite);
+        const mJ = okJ.length ? S.mean(okJ) : NaN;
+        let ssJ = 0; okJ.forEach(x => { ssJ += (x - mJ) * (x - mJ); });
+        // Đuôi bất lợi: qLo số mẫu có s·θ* nhỏ nhất (gần hoặc vượt qua 0 về phía ngược dấu O)
+        const s = O >= 0 ? 1 : -1;
+        const v = new Float64Array(B); let nv = 0, sumT = 0, sumT2 = 0;
+        for (let b = 0; b < B; b++) { const x = samples[b][group][key]; v[b] = x; if (Number.isFinite(x)) { nv++; sumT += x; sumT2 += x * x; } }
+        const sortedS = Array.from(v).filter(Number.isFinite).map(x => s * x).sort((a, b) => a - b);
+        const mTail = Math.max(1, Math.round(qLo * nv));
+        const thr = sortedS.length ? sortedS[Math.min(sortedS.length - 1, mTail - 1)] : NaN;
+        const n0 = new Int32Array(n), le0 = new Int32Array(n), ge0 = new Int32Array(n);
+        const s0 = new Float64Array(n), q0 = new Float64Array(n), sc = new Float64Array(n), sumC = new Float64Array(n), sumC2 = new Float64Array(n), tl = new Float64Array(n);
+        let nTail = 0;
+        for (let b = 0; b < B; b++) {
+          const x = v[b]; if (!Number.isFinite(x)) continue;
+          const c = counts[b], inTail = s * x <= thr; if (inTail) nTail++;
+          for (let i = 0; i < n; i++) {
+            const ci = c[i];
+            if (ci === 0) { n0[i]++; s0[i] += x; q0[i] += x * x; if (x <= 0) le0[i]++; if (x >= 0) ge0[i]++; }
+            else { sc[i] += ci * x; sumC[i] += ci; sumC2[i] += ci * ci; if (inTail) tl[i] += ci; }
+          }
+        }
+        const meanT = nv ? sumT / nv : NaN, varT = nv > 1 ? (sumT2 - nv * meanT * meanT) / (nv - 1) : NaN;
+        const info = { group, key, O, sd: st.sd, t: st.t, p: st.p, sig: st.p < alpha, ciSig: st.ciSig, flips: 0, ciFlips: 0, top: null, topShare: 0 };
+        for (let i = 0; i < n; i++) {
+          const est = jk[i], m = n0[i];
+          const se = m > 1 ? Math.sqrt(Math.max(0, (q0[i] - s0[i] * s0[i] / m) / (m - 1))) : NaN;
+          const t = se > 0 && Number.isFinite(est) ? Math.abs(est / se) : NaN;
+          const p = !Number.isFinite(t) ? NaN : tails === 2 ? D.tPValue(t, Math.max(1, m - 1), 2) : D.tSf(dir * est / se, Math.max(1, m - 1));
+          const loPos = m ? le0[i] / m < qLo : false, hiNeg = m ? ge0[i] / m < qLo : false;
+          const ciSig = tails === 2 ? (loPos || hiNeg) : (dir > 0 ? loPos : hiNeg);
+          const mc = nv ? sumC[i] / nv : NaN, vc = nv > 1 ? (sumC2[i] - nv * mc * mc) / (nv - 1) : NaN;
+          const cov = nv > 1 ? (sc[i] - nv * mc * meanT) / (nv - 1) : NaN;
+          const e = {
+            est, d: est - O, share: ssJ > 0 && Number.isFinite(est) ? (est - mJ) * (est - mJ) / ssJ : NaN,
+            se, t, p, n0: m, sig: p < alpha, ciSig,
+            flip: Number.isFinite(p) && (p < alpha) !== info.sig, ciFlip: m > 0 && ciSig !== info.ciSig,
+            corr: vc > 0 && varT > 0 ? cov / Math.sqrt(vc * varT) : NaN, tail: nTail ? tl[i] / nTail : NaN
+          };
+          const id = `${group}|${key}`, row = rows[i];
+          row.effects[id] = e;
+          if (e.flip) { info.flips++; row.flips.push(id); }
+          if (e.ciFlip) info.ciFlips++;
+          if (e.share > row.maxShare) { row.maxShare = e.share; row.maxKey = id; }
+          if (e.share > info.topShare) { info.topShare = e.share; info.top = i; }
+        }
+        keys.push(info);
+      }
+    }
+    rows.forEach(r => { r.influential = r.flips.length > 0 || r.maxShare >= cut; });
+    return { n, samples: B, cut, keys, rows };
+  }
+
   const tick = () => new Promise(r => setTimeout(r, 0));
 
   /**
@@ -303,20 +380,20 @@
     const orig = extract(ctx.original, routes);
     const rand = rng(opts.seed ?? 1);
     const cols = items.map(it => ctx.data[it]);
-    const samples = [];
+    const samples = [], counts = [];
     let failed = 0, notConverged = 0;
     const B = opts.samples, chunk = 25;
     const t0 = Date.now();
     for (let s = 0; s < B; s += chunk) {
       for (let b = s; b < Math.min(B, s + chunk); b++) {
-        const pick = new Array(n);
-        for (let i = 0; i < n; i++) pick[i] = Math.floor(rand() * n);
+        const pick = new Array(n), cnt = new Uint8Array(n);
+        for (let i = 0; i < n; i++) { const r = Math.floor(rand() * n); pick[i] = r; if (cnt[r] < 255) cnt[r]++; }
         try {
           const R = corOfSample(cols, pick);
           if (!R) { failed++; continue; }          // mẫu có biến hằng (phương sai 0)
           const res = plsCorr(R, ctx.blocks, ctx.paths, ctx.plsOpts);
           if (!res.converged) { notConverged++; continue; }
-          samples.push(extract(fixSigns(res, ctx.original), routes));
+          samples.push(extract(fixSigns(res, ctx.original), routes)); counts.push(cnt);
         } catch (e) { failed++; }
       }
       if (onProgress) onProgress(Math.min(B, s + chunk), B, Date.now() - t0, 'boot');
@@ -324,7 +401,7 @@
       await tick();
     }
     // Jackknife (bỏ từng dòng) để ước lượng hệ số gia tốc của khoảng tin cậy BCa
-    const jack = [];
+    const jackByRow = new Array(n).fill(null);
     const pre = looPrep(cols);
     for (let r = 0; r < n; r += 50) {
       for (let i = r; i < Math.min(n, r + 50); i++) {
@@ -332,21 +409,25 @@
           const R = corLeaveOut(cols, pre, i);
           if (!R) continue;
           const res = plsCorr(R, ctx.blocks, ctx.paths, ctx.plsOpts);
-          if (res.converged) jack.push(extract(fixSigns(res, ctx.original), routes));
+          if (res.converged) jackByRow[i] = extract(fixSigns(res, ctx.original), routes);
         } catch (e) { /* bỏ qua dòng này */ }
       }
       if (onProgress) onProgress(Math.min(n, r + 50), n, Date.now() - t0, 'jack');
       if (isCancelled && isCancelled()) throw new Error('Đã hủy bootstrapping.');
       await tick();
     }
+    const jack = jackByRow.filter(Boolean);
+    // BCa acceleration requires the complete leave-one-out jackknife.
+    const stats = summarize(orig, samples, opts, jack.length === n ? jack : [], routes);
     return {
-      // BCa acceleration requires the complete leave-one-out jackknife.
-      stats: summarize(orig, samples, opts, jack.length === n ? jack : [], routes), done: samples.length, failed, notConverged,
-      jackknife: jack.length, requested: B, routes, opts, ms: Date.now() - t0
+      stats, done: samples.length, failed, notConverged,
+      jackknife: jack.length, requested: B, routes, opts, ms: Date.now() - t0,
+      influence: samples.length > 1 ? influence(orig, samples, counts, jackByRow, stats, opts) : null,
+      rowIds: ctx.rowIds || null
     };
   }
 
-  const api = { run, indirectRoutes, summarize, rng, plsCorr, corOfSample, corLeaveOut, looPrep, extract, fixSigns };
+  const api = { run, influence, indirectRoutes, summarize, rng, plsCorr, corOfSample, corLeaveOut, looPrep, extract, fixSigns };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else (global.PTSL = global.PTSL || {}).bootstrap = api;
 })(typeof window !== 'undefined' ? window : globalThis);

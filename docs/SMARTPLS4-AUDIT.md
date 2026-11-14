@@ -8,7 +8,7 @@ Phạm vi: PLS-SEM chuẩn, dữ liệu chuẩn hóa, reflective Mode A. Đây l
 | Khởi tạo / hội tụ | Trọng số +1, 3.000 vòng, ngưỡng 1e-7. Đã chặn báo cáo khi không hội tụ. Chưa xác nhận quy tắc tổng hợp chênh lệch trọng số nội bộ SmartPLS; ứng dụng dùng sai khác tuyệt đối lớn nhất. |
 | Loadings, alpha, CR, AVE | Công thức tương quan và độ tin cậy chuẩn hóa nhất quán. Alpha thô hiển thị riêng. Kiểm tra alpha bằng ví dụ có đáp án giải tích. |
 | rho_A | Công thức dựa trên trọng số chuẩn hóa và các phần tử ngoài đường chéo của ma trận tương quan; chưa có bộ đáp án SmartPLS đối chứng độc lập. |
-| HTMT | Dùng trị tuyệt đối của từng tương quan, phù hợp HTMT+ được SmartPLS mô tả. Không tính cho cặp chứa thang đo một biến. |
+| HTMT | Dùng trị tuyệt đối của từng tương quan, phù hợp HTMT+ được SmartPLS mô tả. Thang đo một biến: tương quan nội bộ trung bình lấy bằng 1 (sửa 14/11/2026; trước đó không tính). |
 | Beta, R², VIF, f² | Hồi quy trên điểm construct chuẩn hóa. f² giữ điểm construct của mô hình đầy đủ, rồi bỏ predictor khỏi hồi quy; phù hợp hướng dẫn case study SmartPLS. R² hiệu chỉnh trả giá trị không xác định nếu không đủ bậc tự do. |
 | Bootstrap | Lấy mẫu có hoàn lại, cỡ mẫu bằng dữ liệu đã xử lý thiếu; mặc định 10.000. Seed tái lập trong ứng dụng, không đảm bảo cùng seed cho cùng chuỗi mẫu với SmartPLS. |
 | Đổi dấu bootstrap | Đã sửa: căn theo vector loadings của mô hình gốc, áp dụng cho cả bootstrap và jackknife. Đây là lựa chọn của ứng dụng, cần kiểm tra cấu hình đổi dấu khi so sánh SmartPLS. |

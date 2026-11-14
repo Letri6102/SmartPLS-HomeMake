@@ -248,9 +248,9 @@
     const pos = []; let p = 0;
     blocks.forEach(b => { pos.push(b.items.map(() => p++)); });
     // HTMT tính trên trị tuyệt đối của từng tương quan (như SmartPLS);
-    // thang đo một biến không có tương quan nội bộ nên không tính HTMT (NaN)
+    // thang đo một biến: tương quan nội bộ trung bình lấy bằng 1 (như SmartPLS)
     const mono = pos.map(ids => {
-      if (ids.length < 2) return NaN;
+      if (ids.length < 2) return 1;
       let s = 0, m = 0;
       for (let a = 0; a < ids.length; a++) for (let c = a + 1; c < ids.length; c++) { s += Math.abs(R[ids[a]][ids[c]]); m++; }
       return s / m;
